@@ -2,7 +2,6 @@ import sqlite3
 import os
 import pandas as pd
 
-
 DB_PATH = "churchtrack.db"
 
 
@@ -73,7 +72,6 @@ class DatabaseManager:
             )
         """)
 
-        # Create default admin account if no users exist
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
@@ -102,7 +100,12 @@ class DatabaseManager:
     def get_historical_data(self):
         conn = self._get_connection()
         df = pd.read_sql_query(
-            "SELECT date, donor_name, category, amount FROM transactions WHERE type='INFLOW' ORDER BY date ASC",
+            """
+            SELECT date, donor_name, category, amount
+            FROM transactions
+            WHERE type='INFLOW'
+            ORDER BY date ASC
+            """,
             conn,
             parse_dates=["date"]
         )
@@ -117,7 +120,6 @@ class DatabaseManager:
             SELECT COALESCE(SUM(amount), 0)
             FROM transactions
             WHERE type='INFLOW'
-            AND strftime('%Y-%m', date) = strftime('%Y-%m', 'now')
         """)
         total_donations = cursor.fetchone()[0]
 
@@ -139,7 +141,11 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT date, donor_name, category, amount
+            SELECT
+                date(date) as date,
+                donor_name,
+                category,
+                amount
             FROM transactions
             WHERE type='INFLOW'
             ORDER BY date DESC
@@ -148,6 +154,48 @@ class DatabaseManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
+    def get_all_transactions(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                date(date) as date,
+                donor_name,
+                category,
+                amount,
+                remarks
+            FROM transactions
+            WHERE type='INFLOW'
+            ORDER BY date DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_audit_trail(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT log_id, user_id, action, timestamp, details
+            FROM audit_trail
+            ORDER BY timestamp DESC
+            LIMIT 100
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def log_action(self, user_id, action, details=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        import datetime
+        cursor.execute("""
+            INSERT INTO audit_trail (user_id, action, timestamp, details)
+            VALUES (?, ?, ?, ?)
+        """, (user_id, action, datetime.datetime.now().isoformat(), details))
+        conn.commit()
+        conn.close()
 
     def save_transaction(self, date, donor_name, category, amount, remarks="", user_id=None):
         conn = self._get_connection()
@@ -160,6 +208,21 @@ class DatabaseManager:
         conn.commit()
         conn.close()
         return trans_id
+
+    def get_monthly_summary(self):
+        conn = self._get_connection()
+        df = pd.read_sql_query("""
+            SELECT
+                strftime('%Y-%m', date) as month,
+                category,
+                SUM(amount) as total
+            FROM transactions
+            WHERE type='INFLOW'
+            GROUP BY month, category
+            ORDER BY month ASC
+        """, conn)
+        conn.close()
+        return df
 
     def import_from_excel(self, filepath):
         from core.ai_engine import load_from_excel

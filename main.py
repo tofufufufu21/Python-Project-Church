@@ -7,7 +7,12 @@ from tkinter import messagebox
 from core.db_manager import DatabaseManager
 from core.ai_engine import AIEngine
 from ui.login_ui import LoginFrame
-from ui.dashboard import AdminDashboard, StaffDonationEntry
+from ui.dashboard import (
+    AdminDashboard,
+    FinancialAnalytics,
+    AuditLogs,
+    StaffDonationEntry
+)
 
 ctk.set_appearance_mode("Light")
 ctk.set_default_color_theme("blue")
@@ -28,9 +33,7 @@ class ChurchTrackApp(ctk.CTk):
         sh = self.winfo_screenheight()
         x  = (sw // 2) - (width  // 2)
         y  = (sh // 2) - (height // 2)
-        self.geometry(
-            str(width) + "x" + str(height) + "+" + str(x) + "+" + str(y)
-        )
+        self.geometry(str(width) + "x" + str(height) + "+" + str(x) + "+" + str(y))
 
     def _clear(self):
         for w in self.winfo_children():
@@ -44,15 +47,38 @@ class ChurchTrackApp(ctk.CTk):
     def on_login_success(self, username, password):
         role = self.db_manager.validate_login(username, password)
         if role == "admin":
-            self._clear()
-            self.configure(fg_color="#F4F6F9")
-            AdminDashboard(self, self.db_manager, self.ai_engine, self.show_login)
+            self._load_admin_screen("Dashboard")
         elif role == "staff":
             self._clear()
             self.configure(fg_color="#F4F6F9")
             StaffDonationEntry(self, self.db_manager, self.show_login)
         else:
             messagebox.showerror("Login Failed", "Invalid username or password.")
+
+    def _load_admin_screen(self, screen):
+        self._clear()
+        self.configure(fg_color="#F4F6F9")
+
+        if screen == "Dashboard":
+            AdminDashboard(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            )
+        elif screen == "Financial Analytics":
+            FinancialAnalytics(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            )
+        elif screen == "Audit Logs":
+            AuditLogs(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            )
+        else:
+            AdminDashboard(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            )
 
 
 if __name__ == "__main__":
