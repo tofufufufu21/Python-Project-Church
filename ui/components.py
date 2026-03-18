@@ -116,7 +116,7 @@ def build_topbar(parent, role):
 ADMIN_NAV = [
     "Dashboard", "Financial Analytics",
     "Event Management", "Staff Control",
-    "Audit Logs", "Settings"
+    "Audit Logs", "Reports", "Settings"
 ]
 
 STAFF_NAV = [

@@ -12,6 +12,7 @@ from ui.financial_analytics import FinancialAnalytics
 from ui.event_management import EventManagement
 from ui.staff_control import StaffControl
 from ui.audit_logs import AuditLogs
+from ui.reports import Reports
 from ui.settings import Settings
 from ui.staff_donation import StaffDonationEntry
 
@@ -61,12 +62,34 @@ class ChurchTrackApp(ctk.CTk):
         self.configure(fg_color="#F4F6F9")
 
         screens = {
-            "Dashboard":          lambda: AdminDashboard(self, self.db_manager, self.ai_engine, self._load_admin_screen, self.show_login),
-            "Financial Analytics":lambda: FinancialAnalytics(self, self.db_manager, self.ai_engine, self._load_admin_screen, self.show_login),
-            "Event Management":   lambda: EventManagement(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Staff Control":      lambda: StaffControl(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Audit Logs":         lambda: AuditLogs(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Settings":           lambda: Settings(self, self.db_manager, self._load_admin_screen, self.show_login),
+            "Dashboard": lambda: AdminDashboard(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Financial Analytics": lambda: FinancialAnalytics(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Event Management": lambda: EventManagement(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Staff Control": lambda: StaffControl(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Audit Logs": lambda: AuditLogs(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Reports": lambda: Reports(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Settings": lambda: Settings(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
         }
 
         action = screens.get(screen, screens["Dashboard"])

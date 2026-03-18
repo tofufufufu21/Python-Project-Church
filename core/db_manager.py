@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import pandas as pd
+from core.security import SecurityManager
 
 DB_PATH = "churchtrack.db"
 
@@ -20,68 +21,69 @@ class DatabaseManager:
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id     INTEGER PRIMARY KEY AUTOINCREMENT,
-                username    TEXT NOT NULL UNIQUE,
-                password    TEXT NOT NULL,
-                role        TEXT NOT NULL DEFAULT 'staff'
+                user_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                username  TEXT NOT NULL UNIQUE,
+                password  TEXT NOT NULL,
+                role      TEXT NOT NULL DEFAULT 'staff'
             )
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
-                trans_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                date        TEXT NOT NULL,
-                donor_name  TEXT,
-                category    TEXT NOT NULL,
-                amount      REAL NOT NULL,
-                type        TEXT NOT NULL DEFAULT 'INFLOW',
-                remarks     TEXT,
-                user_id     INTEGER
+                trans_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                date       TEXT NOT NULL,
+                donor_name TEXT,
+                category   TEXT NOT NULL,
+                amount     REAL NOT NULL,
+                type       TEXT NOT NULL DEFAULT 'INFLOW',
+                remarks    TEXT,
+                user_id    INTEGER
             )
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS mass_intentions (
-                intention_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                trans_id        INTEGER,
-                intention_type  TEXT,
-                offered_for     TEXT,
-                mass_date       TEXT,
-                mass_time       TEXT,
+                intention_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                trans_id       INTEGER,
+                intention_type TEXT,
+                offered_for    TEXT,
+                mass_date      TEXT,
+                mass_time      TEXT,
                 FOREIGN KEY (trans_id) REFERENCES transactions(trans_id)
             )
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS events (
-                event_id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                name        TEXT NOT NULL,
-                start_date  TEXT NOT NULL,
-                end_date    TEXT,
-                recurring   INTEGER DEFAULT 0
+                event_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                name       TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date   TEXT,
+                recurring  INTEGER DEFAULT 0
             )
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS audit_trail (
-                log_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id     INTEGER,
-                action      TEXT NOT NULL,
-                timestamp   TEXT NOT NULL,
-                details     TEXT
+                log_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id   INTEGER,
+                action    TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                details   TEXT
             )
         """)
 
+        # Create default accounts with hashed passwords
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
                 INSERT INTO users (username, password, role)
-                VALUES ('admin', 'admin123', 'admin')
-            """)
+                VALUES (?, ?, ?)
+            """, ("admin", SecurityManager.hash_password("admin123"), "admin"))
             cursor.execute("""
                 INSERT INTO users (username, password, role)
-                VALUES ('staff', 'staff123', 'staff')
-            """)
+                VALUES (?, ?, ?)
+            """, ("staff", SecurityManager.hash_password("staff123"), "staff"))
 
         conn.commit()
         conn.close()
@@ -90,12 +92,16 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT role FROM users WHERE username=? AND password=?",
-            (username, password)
+            "SELECT password, role FROM users WHERE username = ?",
+            (username,)
         )
         result = cursor.fetchone()
         conn.close()
-        return result[0] if result else None
+        if result:
+            stored_hash, role = result
+            if SecurityManager.verify_password(password, stored_hash):
+                return role
+        return None
 
     def get_historical_data(self):
         conn = self._get_connection()
@@ -103,7 +109,7 @@ class DatabaseManager:
             """
             SELECT date, donor_name, category, amount
             FROM transactions
-            WHERE type='INFLOW'
+            WHERE type = 'INFLOW'
             ORDER BY date ASC
             """,
             conn,
@@ -119,7 +125,7 @@ class DatabaseManager:
         cursor.execute("""
             SELECT COALESCE(SUM(amount), 0)
             FROM transactions
-            WHERE type='INFLOW'
+            WHERE type = 'INFLOW'
         """)
         total_donations = cursor.fetchone()[0]
 
@@ -141,13 +147,9 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT
-                date(date) as date,
-                donor_name,
-                category,
-                amount
+            SELECT date(date), donor_name, category, amount
             FROM transactions
-            WHERE type='INFLOW'
+            WHERE type = 'INFLOW'
             ORDER BY date DESC
             LIMIT 20
         """)
@@ -159,16 +161,40 @@ class DatabaseManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            SELECT
-                date(date) as date,
-                donor_name,
-                category,
-                amount,
-                remarks
+            SELECT date(date), donor_name, category, amount, remarks
             FROM transactions
-            WHERE type='INFLOW'
+            WHERE type = 'INFLOW'
             ORDER BY date DESC
         """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_transactions_by_range(self, start_date, end_date):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT date(date), donor_name, category, amount, remarks
+            FROM transactions
+            WHERE type = 'INFLOW'
+            AND date(date) BETWEEN ? AND ?
+            ORDER BY date ASC
+        """, (start_date, end_date))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_summary_by_range(self, start_date, end_date):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT category, SUM(amount) as total
+            FROM transactions
+            WHERE type = 'INFLOW'
+            AND date(date) BETWEEN ? AND ?
+            GROUP BY category
+            ORDER BY total DESC
+        """, (start_date, end_date))
         rows = cursor.fetchall()
         conn.close()
         return rows
@@ -187,9 +213,9 @@ class DatabaseManager:
         return rows
 
     def log_action(self, user_id, action, details=""):
+        import datetime
         conn = self._get_connection()
         cursor = conn.cursor()
-        import datetime
         cursor.execute("""
             INSERT INTO audit_trail (user_id, action, timestamp, details)
             VALUES (?, ?, ?, ?)
@@ -197,17 +223,29 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-    def save_transaction(self, date, donor_name, category, amount, remarks="", user_id=None):
+    def save_transaction(self, date, donor_name, category, amount,
+                         remarks="", user_id=None):
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO transactions (date, donor_name, category, amount, type, remarks, user_id)
+            INSERT INTO transactions
+                (date, donor_name, category, amount, type, remarks, user_id)
             VALUES (?, ?, ?, ?, 'INFLOW', ?, ?)
         """, (date, donor_name, category, amount, remarks, user_id))
         trans_id = cursor.lastrowid
         conn.commit()
         conn.close()
         return trans_id
+
+    def create_user(self, username, password, role="staff"):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO users (username, password, role)
+            VALUES (?, ?, ?)
+        """, (username, SecurityManager.hash_password(password), role))
+        conn.commit()
+        conn.close()
 
     def get_monthly_summary(self):
         conn = self._get_connection()
@@ -217,7 +255,7 @@ class DatabaseManager:
                 category,
                 SUM(amount) as total
             FROM transactions
-            WHERE type='INFLOW'
+            WHERE type = 'INFLOW'
             GROUP BY month, category
             ORDER BY month ASC
         """, conn)
