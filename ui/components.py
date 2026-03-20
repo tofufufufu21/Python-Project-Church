@@ -20,7 +20,8 @@ def get_liturgical_season():
 
 def build_sidebar(parent, nav_items, active_item, on_logout):
     sidebar = ctk.CTkFrame(
-        parent, width=220, corner_radius=0, fg_color=THEME["sidebar"]
+        parent, width=220, corner_radius=0,
+        fg_color=THEME["sidebar"]
     )
     sidebar.pack(side="left", fill="y")
     sidebar.pack_propagate(False)
@@ -34,7 +35,10 @@ def build_sidebar(parent, nav_items, active_item, on_logout):
 
     buttons = {}
     for item in nav_items:
-        fg = THEME["sidebar_active"] if item == active_item else "transparent"
+        fg = (
+            THEME["sidebar_active"]
+            if item == active_item else "transparent"
+        )
         btn = ctk.CTkButton(
             sidebar, text=item,
             fg_color=fg,
@@ -87,7 +91,9 @@ def build_topbar(parent, role):
     clock_label.pack(side="left", padx=(0, 20), pady=12)
 
     def update_clock():
-        now = datetime.datetime.now().strftime("%A, %B %d %Y   %I:%M %p")
+        now = datetime.datetime.now().strftime(
+            "%A, %B %d %Y   %I:%M %p"
+        )
         clock_label.configure(text=now)
         clock_label.after(60000, update_clock)
 
@@ -115,11 +121,13 @@ def build_topbar(parent, role):
 
 ADMIN_NAV = [
     "Dashboard", "Financial Analytics",
-    "Event Management", "Staff Control",
-    "Audit Logs", "Reports", "Settings"
+    "Event Management", "Expense Management",
+    "Staff Control", "Audit Logs",
+    "Reports", "AI Assistant", "Settings"
 ]
 
 STAFF_NAV = [
     "Donation Entry", "Mass Intentions",
-    "Event Calendar", "Basic Reports"
+    "Event Calendar", "Expense Request",
+    "Basic Reports"
 ]

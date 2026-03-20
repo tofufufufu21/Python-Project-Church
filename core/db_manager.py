@@ -73,7 +73,20 @@ class DatabaseManager:
             )
         """)
 
-        # Create default accounts with hashed passwords
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS expenses (
+                expense_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                date         TEXT NOT NULL,
+                category     TEXT NOT NULL,
+                amount       REAL NOT NULL,
+                reason       TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'PENDING',
+                submitted_by TEXT,
+                approved_by  TEXT,
+                approved_at  TEXT
+            )
+        """)
+
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
@@ -130,17 +143,36 @@ class DatabaseManager:
         total_donations = cursor.fetchone()[0]
 
         cursor.execute("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM expenses
+            WHERE status = 'APPROVED'
+        """)
+        total_expenses = cursor.fetchone()[0]
+
+        net_balance = total_donations - total_expenses
+
+        cursor.execute("""
             SELECT COUNT(*) FROM events
             WHERE start_date >= date('now')
             AND start_date <= date('now', '+7 days')
         """)
         events_count = cursor.fetchone()[0]
 
+        cursor.execute("""
+            SELECT COUNT(*) FROM expenses
+            WHERE status = 'PENDING'
+        """)
+        pending_expenses = cursor.fetchone()[0]
+
         conn.close()
         return {
-            "total_donations": "₱ {:,.0f}".format(total_donations),
-            "events_count":    str(events_count),
-            "forecast":        "Stable"
+            "total_donations":  "₱ {:,.0f}".format(total_donations),
+            "total_expenses":   "₱ {:,.0f}".format(total_expenses),
+            "net_balance":      "₱ {:,.0f}".format(net_balance),
+            "net_balance_raw":  net_balance,
+            "events_count":     str(events_count),
+            "pending_expenses": str(pending_expenses),
+            "forecast":         "Stable"
         }
 
     def get_recent_transactions(self):
@@ -219,12 +251,13 @@ class DatabaseManager:
         cursor.execute("""
             INSERT INTO audit_trail (user_id, action, timestamp, details)
             VALUES (?, ?, ?, ?)
-        """, (user_id, action, datetime.datetime.now().isoformat(), details))
+        """, (user_id, action,
+              datetime.datetime.now().isoformat(), details))
         conn.commit()
         conn.close()
 
-    def save_transaction(self, date, donor_name, category, amount,
-                         remarks="", user_id=None):
+    def save_transaction(self, date, donor_name, category,
+                         amount, remarks="", user_id=None):
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -266,7 +299,201 @@ class DatabaseManager:
         from core.ai_engine import load_from_excel
         df = load_from_excel(filepath)
         df["type"] = "INFLOW"
+
         conn = self._get_connection()
-        df.to_sql("transactions", conn, if_exists="append", index=False)
+        cursor = conn.cursor()
+
+        inserted = 0
+        skipped  = 0
+
+        for _, row in df.iterrows():
+            cursor.execute("""
+                SELECT COUNT(*) FROM transactions
+                WHERE date(date) = date(?)
+                AND donor_name   = ?
+                AND category     = ?
+                AND amount       = ?
+            """, (
+                str(row["date"])[:10],
+                str(row.get("donor_name", "")),
+                str(row["category"]),
+                float(row["amount"])
+            ))
+            exists = cursor.fetchone()[0]
+
+            if exists == 0:
+                cursor.execute("""
+                    INSERT INTO transactions
+                        (date, donor_name, category,
+                         amount, type, remarks)
+                    VALUES (?, ?, ?, ?, 'INFLOW', ?)
+                """, (
+                    str(row["date"])[:10],
+                    str(row.get("donor_name", "")),
+                    str(row["category"]),
+                    float(row["amount"]),
+                    str(row.get("remarks", ""))
+                ))
+                inserted += 1
+            else:
+                skipped += 1
+
+        conn.commit()
         conn.close()
-        print("Imported " + str(len(df)) + " records from " + filepath)
+
+        print("Import complete — " + str(inserted) +
+              " new records added, " + str(skipped) +
+              " duplicates skipped.")
+        return inserted, skipped
+
+    # ─── EXPENSE METHODS ───────────────────────────────
+
+    def save_expense_request(self, date, category, amount,
+                              reason, submitted_by=None):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO expenses
+                (date, category, amount, reason,
+                 status, submitted_by)
+            VALUES (?, ?, ?, ?, 'PENDING', ?)
+        """, (date, category, amount, reason, submitted_by))
+        expense_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return expense_id
+
+    def approve_expense(self, expense_id, approved_by):
+        import datetime
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE expenses
+            SET status      = 'APPROVED',
+                approved_by = ?,
+                approved_at = ?
+            WHERE expense_id = ?
+        """, (approved_by,
+              datetime.datetime.now().isoformat(),
+              expense_id))
+        conn.commit()
+        conn.close()
+
+    def reject_expense(self, expense_id, approved_by):
+        import datetime
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE expenses
+            SET status      = 'REJECTED',
+                approved_by = ?,
+                approved_at = ?
+            WHERE expense_id = ?
+        """, (approved_by,
+              datetime.datetime.now().isoformat(),
+              expense_id))
+        conn.commit()
+        conn.close()
+
+    def get_pending_expenses(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT expense_id, date, category,
+                   amount, reason, submitted_by
+            FROM expenses
+            WHERE status = 'PENDING'
+            ORDER BY date DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_approved_expenses(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT expense_id, date, category,
+                   amount, reason, approved_by, approved_at
+            FROM expenses
+            WHERE status = 'APPROVED'
+            ORDER BY date DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_all_expenses(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT expense_id, date, category,
+                   amount, reason, status,
+                   submitted_by, approved_by
+            FROM expenses
+            ORDER BY date DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_expense_historical_data(self):
+        conn = self._get_connection()
+        df = pd.read_sql_query("""
+            SELECT date, category, amount
+            FROM expenses
+            WHERE status = 'APPROVED'
+            ORDER BY date ASC
+        """, conn, parse_dates=["date"])
+        conn.close()
+        return df
+
+    def get_expense_summary_by_range(self, start_date, end_date):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT category, SUM(amount) as total
+            FROM expenses
+            WHERE status = 'APPROVED'
+            AND date(date) BETWEEN ? AND ?
+            GROUP BY category
+            ORDER BY total DESC
+        """, (start_date, end_date))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_net_balance(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM transactions WHERE type = 'INFLOW'
+        """)
+        total_income = cursor.fetchone()[0]
+        cursor.execute("""
+            SELECT COALESCE(SUM(amount), 0)
+            FROM expenses WHERE status = 'APPROVED'
+        """)
+        total_expenses = cursor.fetchone()[0]
+        conn.close()
+        return {
+            "income":   total_income,
+            "expenses": total_expenses,
+            "balance":  total_income - total_expenses
+        }
+
+    def get_monthly_expenses(self):
+        conn = self._get_connection()
+        df = pd.read_sql_query("""
+            SELECT
+                strftime('%Y-%m', date) as month,
+                category,
+                SUM(amount) as total
+            FROM expenses
+            WHERE status = 'APPROVED'
+            GROUP BY month, category
+            ORDER BY month ASC
+        """, conn)
+        conn.close()
+        return df

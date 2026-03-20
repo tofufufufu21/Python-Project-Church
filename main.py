@@ -10,10 +10,12 @@ from ui.login_ui import LoginFrame
 from ui.dashboard import AdminDashboard
 from ui.financial_analytics import FinancialAnalytics
 from ui.event_management import EventManagement
+from ui.expense_management import ExpenseManagement
 from ui.staff_control import StaffControl
 from ui.audit_logs import AuditLogs
 from ui.reports import Reports
 from ui.settings import Settings
+from ui.chatbot import ChatbotScreen
 from ui.staff_donation import StaffDonationEntry
 
 ctk.set_appearance_mode("Light")
@@ -35,7 +37,10 @@ class ChurchTrackApp(ctk.CTk):
         sh = self.winfo_screenheight()
         x  = (sw // 2) - (width  // 2)
         y  = (sh // 2) - (height // 2)
-        self.geometry(str(width) + "x" + str(height) + "+" + str(x) + "+" + str(y))
+        self.geometry(
+            str(width) + "x" + str(height) +
+            "+" + str(x) + "+" + str(y)
+        )
 
     def _clear(self):
         for w in self.winfo_children():
@@ -53,9 +58,14 @@ class ChurchTrackApp(ctk.CTk):
         elif role == "staff":
             self._clear()
             self.configure(fg_color="#F4F6F9")
-            StaffDonationEntry(self, self.db_manager, self.show_login)
+            StaffDonationEntry(
+                self, self.db_manager, self.show_login
+            )
         else:
-            messagebox.showerror("Login Failed", "Invalid username or password.")
+            messagebox.showerror(
+                "Login Failed",
+                "Invalid username or password."
+            )
 
     def _load_admin_screen(self, screen):
         self._clear()
@@ -74,6 +84,10 @@ class ChurchTrackApp(ctk.CTk):
                 self, self.db_manager,
                 self._load_admin_screen, self.show_login
             ),
+            "Expense Management": lambda: ExpenseManagement(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
             "Staff Control": lambda: StaffControl(
                 self, self.db_manager,
                 self._load_admin_screen, self.show_login
@@ -84,6 +98,10 @@ class ChurchTrackApp(ctk.CTk):
             ),
             "Reports": lambda: Reports(
                 self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "AI Assistant": lambda: ChatbotScreen(
+                self, self.db_manager, self.ai_engine,
                 self._load_admin_screen, self.show_login
             ),
             "Settings": lambda: Settings(
