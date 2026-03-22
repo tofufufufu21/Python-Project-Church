@@ -1,7 +1,10 @@
 import customtkinter as ctk
 import datetime
 from ui.theme import THEME
-from ui.components import build_sidebar, build_topbar, STAFF_NAV
+from ui.components import (
+    build_sidebar, build_topbar,
+    STAFF_NAV, DatePickerEntry
+)
 
 
 class StaffDonationEntry(ctk.CTkFrame):
@@ -64,7 +67,9 @@ class StaffDonationEntry(ctk.CTkFrame):
         content = ctk.CTkScrollableFrame(
             self.content_frame, fg_color=THEME["bg_main"]
         )
-        content.pack(fill="both", expand=True, padx=30, pady=24)
+        content.pack(
+            fill="both", expand=True, padx=30, pady=24
+        )
 
         ctk.CTkLabel(
             content, text="Donation Entry",
@@ -80,10 +85,13 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         self.selected_category = ctk.StringVar(value="Tithe")
 
-        btn_row = ctk.CTkFrame(content, fg_color="transparent")
+        btn_row = ctk.CTkFrame(
+            content, fg_color="transparent"
+        )
         btn_row.pack(fill="x", pady=(0, 20))
         for cat in [
-            "Tithe", "Love Offering", "Wedding Fee", "Baptism Fee"
+            "Tithe", "Love Offering",
+            "Wedding Fee", "Baptism Fee"
         ]:
             ctk.CTkButton(
                 btn_row, text=cat,
@@ -92,7 +100,9 @@ class StaffDonationEntry(ctk.CTkFrame):
                 font=("Arial", 13, "bold"),
                 height=50, corner_radius=10,
                 command=lambda c=cat: self._select_category(c)
-            ).pack(side="left", padx=5, expand=True, fill="x")
+            ).pack(
+                side="left", padx=5, expand=True, fill="x"
+            )
 
         form = ctk.CTkFrame(
             content, fg_color=THEME["bg_card"],
@@ -116,15 +126,23 @@ class StaffDonationEntry(ctk.CTkFrame):
                 text_color=THEME["text_main"],
                 anchor="w", width=120
             ).pack(side="left")
-            entry = ctk.CTkEntry(
-                row, height=38, corner_radius=8,
-                border_color=THEME["border"],
-                fg_color="#FAFAFA",
-                text_color=THEME["text_main"]
-            )
+
             if key == "date":
-                entry.insert(0, str(datetime.date.today()))
-            entry.pack(side="left", fill="x", expand=True)
+                entry = DatePickerEntry(row)
+                entry.pack(
+                    side="left", fill="x", expand=True
+                )
+            else:
+                entry = ctk.CTkEntry(
+                    row, height=38, corner_radius=8,
+                    border_color=THEME["border"],
+                    fg_color="#FAFAFA",
+                    text_color=THEME["text_main"]
+                )
+                entry.pack(
+                    side="left", fill="x", expand=True
+                )
+
             self.entries[key] = entry
 
         self.cat_label = ctk.CTkLabel(
@@ -132,7 +150,9 @@ class StaffDonationEntry(ctk.CTkFrame):
             font=("Arial", 12, "bold"),
             text_color=THEME["primary"]
         )
-        self.cat_label.pack(anchor="w", padx=24, pady=(0, 16))
+        self.cat_label.pack(
+            anchor="w", padx=24, pady=(0, 16)
+        )
 
         ctk.CTkButton(
             content, text="Save Donation",
@@ -161,7 +181,9 @@ class StaffDonationEntry(ctk.CTkFrame):
 
     def _select_category(self, category):
         self.selected_category.set(category)
-        self.cat_label.configure(text="Category: " + category)
+        self.cat_label.configure(
+            text="Category: " + category
+        )
 
     def _save_donation(self):
         donor   = self.entries["donor"].get().strip()
@@ -187,19 +209,22 @@ class StaffDonationEntry(ctk.CTkFrame):
             )
             return
 
-        self.db.save_transaction(date, donor, cat, amount_val, remarks)
+        self.db.save_transaction(
+            date, donor, cat, amount_val, remarks
+        )
         self.status_label.configure(
             text="Saved — " + cat + " from " + donor +
                  ": ₱" + "{:,.0f}".format(amount_val),
             text_color=THEME["success"]
         )
-        for key in ["donor", "amount", "remarks"]:
-            self.entries[key].delete(0, "end")
+        self.entries["donor"].delete(0, "end")
+        self.entries["amount"].delete(0, "end")
+        self.entries["remarks"].delete(0, "end")
 
     def _open_mass_intention_modal(self):
         modal = ctk.CTkToplevel(self)
         modal.title("Mass Intention")
-        modal.geometry("420x460")
+        modal.geometry("460x480")
         modal.grab_set()
 
         ctk.CTkLabel(
@@ -223,15 +248,19 @@ class StaffDonationEntry(ctk.CTkFrame):
                 text_color=THEME["text_main"],
                 anchor="w", width=120
             ).pack(side="left")
-            e = ctk.CTkEntry(
-                f, height=36, corner_radius=8,
-                border_color=THEME["border"],
-                fg_color="#FAFAFA",
-                text_color=THEME["text_main"]
-            )
+
             if key == "mass_date":
-                e.insert(0, str(datetime.date.today()))
-            e.pack(side="left", fill="x", expand=True)
+                e = DatePickerEntry(f)
+                e.pack(side="left", fill="x", expand=True)
+            else:
+                e = ctk.CTkEntry(
+                    f, height=36, corner_radius=8,
+                    border_color=THEME["border"],
+                    fg_color="#FAFAFA",
+                    text_color=THEME["text_main"]
+                )
+                e.pack(side="left", fill="x", expand=True)
+
             fields[key] = e
 
         modal_status = ctk.CTkLabel(
@@ -254,7 +283,9 @@ class StaffDonationEntry(ctk.CTkFrame):
                 )
                 return
             try:
-                amount_val = float(offering.replace(",", ""))
+                amount_val = float(
+                    offering.replace(",", "")
+                )
                 if amount_val <= 0:
                     raise ValueError
             except ValueError:
@@ -265,7 +296,8 @@ class StaffDonationEntry(ctk.CTkFrame):
                 return
 
             self.db.save_transaction(
-                mass_date, name, "Mass Offering", amount_val,
+                mass_date, name,
+                "Mass Offering", amount_val,
                 remarks="Intention: " + itype
             )
             modal.destroy()

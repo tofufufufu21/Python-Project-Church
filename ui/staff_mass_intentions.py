@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import datetime
 from ui.theme import THEME
+from ui.components import DatePickerEntry
 
 
 class StaffMassIntentions(ctk.CTkFrame):
@@ -12,8 +13,12 @@ class StaffMassIntentions(ctk.CTkFrame):
         self._build()
 
     def _build(self):
-        content = ctk.CTkScrollableFrame(self, fg_color=THEME["bg_main"])
-        content.pack(fill="both", expand=True, padx=30, pady=24)
+        content = ctk.CTkScrollableFrame(
+            self, fg_color=THEME["bg_main"]
+        )
+        content.pack(
+            fill="both", expand=True, padx=30, pady=24
+        )
 
         ctk.CTkLabel(
             content, text="Mass Intentions",
@@ -23,7 +28,8 @@ class StaffMassIntentions(ctk.CTkFrame):
 
         ctk.CTkLabel(
             content,
-            text="Record and view all mass intentions and offerings.",
+            text="Record and view all mass intentions "
+                 "and offerings.",
             font=("Arial", 12),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 16))
@@ -45,7 +51,10 @@ class StaffMassIntentions(ctk.CTkFrame):
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
-        type_row = ctk.CTkFrame(form_card, fg_color="transparent")
+        # Intention type dropdown
+        type_row = ctk.CTkFrame(
+            form_card, fg_color="transparent"
+        )
         type_row.pack(fill="x", padx=24, pady=6)
         ctk.CTkLabel(
             type_row, text="Intention Type",
@@ -53,7 +62,9 @@ class StaffMassIntentions(ctk.CTkFrame):
             text_color=THEME["text_main"],
             anchor="w", width=140
         ).pack(side="left")
-        self.intention_type_var = ctk.StringVar(value="In Memory of")
+        self.intention_type_var = ctk.StringVar(
+            value="In Memory of"
+        )
         ctk.CTkOptionMenu(
             type_row,
             values=[
@@ -70,11 +81,13 @@ class StaffMassIntentions(ctk.CTkFrame):
         self.entries = {}
         for label, key, default in [
             ("Offered For",  "name",      ""),
-            ("Mass Date",    "mass_date", str(datetime.date.today())),
+            ("Mass Date",    "mass_date", None),
             ("Mass Time",    "mass_time", "6:00 AM"),
             ("Offering (₱)", "offering",  ""),
         ]:
-            row = ctk.CTkFrame(form_card, fg_color="transparent")
+            row = ctk.CTkFrame(
+                form_card, fg_color="transparent"
+            )
             row.pack(fill="x", padx=24, pady=6)
             ctk.CTkLabel(
                 row, text=label,
@@ -82,15 +95,24 @@ class StaffMassIntentions(ctk.CTkFrame):
                 text_color=THEME["text_main"],
                 anchor="w", width=140
             ).pack(side="left")
-            entry = ctk.CTkEntry(
-                row, height=38, corner_radius=8,
-                border_color=THEME["border"],
-                fg_color="#FAFAFA",
-                text_color=THEME["text_main"]
-            )
-            if default:
-                entry.insert(0, default)
-            entry.pack(side="left", fill="x", expand=True)
+
+            if key == "mass_date":
+                entry = DatePickerEntry(row)
+                entry.pack(
+                    side="left", fill="x", expand=True
+                )
+            else:
+                entry = ctk.CTkEntry(
+                    row, height=38, corner_radius=8,
+                    border_color=THEME["border"],
+                    fg_color="#FAFAFA",
+                    text_color=THEME["text_main"]
+                )
+                if default:
+                    entry.insert(0, default)
+                entry.pack(
+                    side="left", fill="x", expand=True
+                )
             self.entries[key] = entry
 
         self.form_status = ctk.CTkLabel(
@@ -140,7 +162,8 @@ class StaffMassIntentions(ctk.CTkFrame):
 
         if not name or not mass_date or not offering:
             self.form_status.configure(
-                text="Offered For, Mass Date and Offering are required.",
+                text="Offered For, Mass Date and "
+                     "Offering are required.",
                 text_color=THEME["danger"]
             )
             return
@@ -160,18 +183,20 @@ class StaffMassIntentions(ctk.CTkFrame):
             remarks=itype + " — " + mass_time
         )
 
-        conn = self.db._get_connection()
+        conn   = self.db._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO mass_intentions
-                (trans_id, intention_type, offered_for, mass_date, mass_time)
+                (trans_id, intention_type,
+                 offered_for, mass_date, mass_time)
             VALUES (?, ?, ?, ?, ?)
         """, (trans_id, itype, name, mass_date, mass_time))
         conn.commit()
         conn.close()
 
         self.form_status.configure(
-            text="Saved — " + itype + " for " + name + " on " + mass_date,
+            text="Saved — " + itype + " for " +
+                 name + " on " + mass_date,
             text_color=THEME["success"]
         )
         self.entries["name"].delete(0, "end")
@@ -182,7 +207,7 @@ class StaffMassIntentions(ctk.CTkFrame):
         for w in self.list_container.winfo_children():
             w.destroy()
 
-        conn = self.db._get_connection()
+        conn   = self.db._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
             SELECT mi.offered_for, mi.intention_type,
@@ -204,7 +229,10 @@ class StaffMassIntentions(ctk.CTkFrame):
             ).pack(pady=20)
             return
 
-        headers = ["Offered For", "Type", "Mass Date", "Time", "Offering"]
+        headers = [
+            "Offered For", "Type", "Mass Date",
+            "Time", "Offering"
+        ]
         weights = [3, 2, 2, 1, 1]
 
         header_row = ctk.CTkFrame(
@@ -217,7 +245,10 @@ class StaffMassIntentions(ctk.CTkFrame):
                 header_row, text=h,
                 font=("Arial", 11, "bold"),
                 text_color=THEME["text_sub"], anchor="w"
-            ).grid(row=0, column=i, sticky="ew", padx=12, pady=8)
+            ).grid(
+                row=0, column=i,
+                sticky="ew", padx=12, pady=8
+            )
 
         for name, itype, mass_date, mass_time, amount in rows:
             row_frame = ctk.CTkFrame(
@@ -229,10 +260,16 @@ class StaffMassIntentions(ctk.CTkFrame):
                 str(mass_time or ""),
                 "₱ {:,.0f}".format(amount)
             ]
-            for i, (val, w) in enumerate(zip(values, weights)):
+            for i, (val, w) in enumerate(
+                zip(values, weights)
+            ):
                 row_frame.grid_columnconfigure(i, weight=w)
                 ctk.CTkLabel(
                     row_frame, text=val,
                     font=("Arial", 11),
-                    text_color=THEME["text_main"], anchor="w"
-                ).grid(row=0, column=i, sticky="ew", padx=12, pady=6)
+                    text_color=THEME["text_main"],
+                    anchor="w"
+                ).grid(
+                    row=0, column=i,
+                    sticky="ew", padx=12, pady=6
+                )
