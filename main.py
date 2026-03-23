@@ -10,9 +10,12 @@ from ui.login_ui import LoginFrame
 from ui.dashboard import AdminDashboard
 from ui.financial_analytics import FinancialAnalytics
 from ui.event_management import EventManagement
+from ui.expense_management import ExpenseManagement
 from ui.staff_control import StaffControl
 from ui.audit_logs import AuditLogs
+from ui.reports import Reports
 from ui.settings import Settings
+from ui.chatbot import ChatbotScreen
 from ui.staff_donation import StaffDonationEntry
 
 ctk.set_appearance_mode("Light")
@@ -24,17 +27,14 @@ class ChurchTrackApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("ChurchTrack AI System")
-        self.db_manager = DatabaseManager()
-        self.ai_engine  = AIEngine(self.db_manager)
-        self._center_window(1280, 720)
+        self.db_manager            = DatabaseManager()
+        self.ai_engine             = AIEngine(self.db_manager)
+        self.db_manager._ai_engine = self.ai_engine
+        self.after(10, self._maximize)
         self.show_login()
 
-    def _center_window(self, width, height):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
-        x  = (sw // 2) - (width  // 2)
-        y  = (sh // 2) - (height // 2)
-        self.geometry(str(width) + "x" + str(height) + "+" + str(x) + "+" + str(y))
+    def _maximize(self):
+        self.wm_state("zoomed")
 
     def _clear(self):
         for w in self.winfo_children():
@@ -42,31 +42,65 @@ class ChurchTrackApp(ctk.CTk):
 
     def show_login(self):
         self._clear()
-        self.configure(fg_color="#456990")
+        self.configure(fg_color="#4a5a8a")
         LoginFrame(self, self.on_login_success)
 
     def on_login_success(self, username, password):
-        role = self.db_manager.validate_login(username, password)
+        role = self.db_manager.validate_login(
+            username, password
+        )
         if role == "admin":
             self._load_admin_screen("Dashboard")
         elif role == "staff":
             self._clear()
             self.configure(fg_color="#F4F6F9")
-            StaffDonationEntry(self, self.db_manager, self.show_login)
+            StaffDonationEntry(
+                self, self.db_manager, self.show_login
+            )
         else:
-            messagebox.showerror("Login Failed", "Invalid username or password.")
+            raise ValueError("Invalid credentials")
 
     def _load_admin_screen(self, screen):
         self._clear()
         self.configure(fg_color="#F4F6F9")
 
         screens = {
-            "Dashboard":          lambda: AdminDashboard(self, self.db_manager, self.ai_engine, self._load_admin_screen, self.show_login),
-            "Financial Analytics":lambda: FinancialAnalytics(self, self.db_manager, self.ai_engine, self._load_admin_screen, self.show_login),
-            "Event Management":   lambda: EventManagement(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Staff Control":      lambda: StaffControl(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Audit Logs":         lambda: AuditLogs(self, self.db_manager, self._load_admin_screen, self.show_login),
-            "Settings":           lambda: Settings(self, self.db_manager, self._load_admin_screen, self.show_login),
+            "Dashboard": lambda: AdminDashboard(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Financial Analytics": lambda: FinancialAnalytics(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Event Management": lambda: EventManagement(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Expense Management": lambda: ExpenseManagement(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Staff Control": lambda: StaffControl(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Audit Logs": lambda: AuditLogs(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "Reports": lambda: Reports(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
+            "AI Assistant": lambda: ChatbotScreen(
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login
+            ),
+            "Settings": lambda: Settings(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
         }
 
         action = screens.get(screen, screens["Dashboard"])
