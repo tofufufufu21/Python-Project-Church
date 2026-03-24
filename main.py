@@ -11,7 +11,7 @@ from ui.dashboard import AdminDashboard
 from ui.financial_analytics import FinancialAnalytics
 from ui.event_management import EventManagement
 from ui.expense_management import ExpenseManagement
-from ui.staff_control import StaffControl
+from ui.account_management import StaffControl
 from ui.audit_logs import AuditLogs
 from ui.reports import Reports
 from ui.settings import Settings
@@ -77,8 +77,8 @@ class ChurchTrackApp(ctk.CTk):
                 self, self.db_manager,
                 self._load_admin_screen, self.show_login
             ),
-            "Expense Management": lambda: ExpenseManagement(
-                self, self.db_manager, self.ai_engine,
+            "Account Management": lambda: StaffControl(
+                self, self.db_manager,
                 self._load_admin_screen, self.show_login
             ),
             "Staff Control": lambda: StaffControl(

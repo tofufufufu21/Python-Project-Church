@@ -20,20 +20,20 @@ def get_liturgical_season():
 
 
 NAV_ICONS = {
-    "Dashboard":           "⊞",
-    "Financial Analytics": "📊",
-    "Event Management":    "📅",
-    "Expense Management":  "💰",
-    "Staff Control":       "👥",
-    "Audit Logs":          "📋",
-    "Reports":             "📄",
-    "AI Assistant":        "🤖",
-    "Settings":            "⚙",
-    "Donation Entry":      "💵",
-    "Mass Intentions":     "🕊",
-    "Event Calendar":      "🗓",
-    "Expense Request":     "📝",
-    "Basic Reports":       "📑",
+    "Dashboard":            "⊞",
+    "Financial Analytics":  "📊",
+    "Event Management":     "📅",
+    "Expense Management":   "💰",
+    "Account Management":   "👤",
+    "Audit Logs":           "📋",
+    "Reports":              "📄",
+    "AI Assistant":         "🤖",
+    "Settings":             "⚙",
+    "Donation Entry":       "💵",
+    "Mass Intentions":      "🕊",
+    "Event Calendar":       "🗓",
+    "Expense Request":      "📝",
+    "Basic Reports":        "📑",
 }
 
 
@@ -196,7 +196,7 @@ def build_topbar(parent, role):
 ADMIN_NAV = [
     "Dashboard", "Financial Analytics",
     "Event Management", "Expense Management",
-    "Staff Control", "Audit Logs",
+    "Account Management", "Audit Logs",
     "Reports", "AI Assistant",
 ]
 

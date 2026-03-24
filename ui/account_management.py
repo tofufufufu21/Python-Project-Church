@@ -15,7 +15,7 @@ class StaffControl(ctk.CTkFrame):
 
     def _build(self):
         self.sidebar, self.nav_btns = build_sidebar(
-            self, ADMIN_NAV, "Staff Control", self.on_logout
+            self, ADMIN_NAV, "Account Management", self.on_logout
         )
         for item, btn in self.nav_btns.items():
             btn.configure(command=lambda i=item: self.on_navigate(i))
