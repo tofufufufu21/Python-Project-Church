@@ -11,7 +11,7 @@ from ui.dashboard import AdminDashboard
 from ui.financial_analytics import FinancialAnalytics
 from ui.event_management import EventManagement
 from ui.expense_management import ExpenseManagement
-from ui.staff_control import StaffControl
+from ui.account_management import StaffControl
 from ui.audit_logs import AuditLogs
 from ui.reports import Reports
 from ui.settings import Settings
@@ -46,17 +46,13 @@ class ChurchTrackApp(ctk.CTk):
         LoginFrame(self, self.on_login_success)
 
     def on_login_success(self, username, password):
-        role = self.db_manager.validate_login(
-            username, password
-        )
+        role = self.db_manager.validate_login(username, password)
         if role == "admin":
             self._load_admin_screen("Dashboard")
         elif role == "staff":
             self._clear()
             self.configure(fg_color="#F4F6F9")
-            StaffDonationEntry(
-                self, self.db_manager, self.show_login
-            )
+            StaffDonationEntry(self, self.db_manager, self.show_login)
         else:
             raise ValueError("Invalid credentials")
 
@@ -81,6 +77,10 @@ class ChurchTrackApp(ctk.CTk):
                 self, self.db_manager, self.ai_engine,
                 self._load_admin_screen, self.show_login
             ),
+            "Account Management": lambda: StaffControl(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login
+            ),
             "Staff Control": lambda: StaffControl(
                 self, self.db_manager,
                 self._load_admin_screen, self.show_login
@@ -103,8 +103,15 @@ class ChurchTrackApp(ctk.CTk):
             ),
         }
 
-        action = screens.get(screen, screens["Dashboard"])
-        action()
+        try:
+            action = screens.get(screen, screens["Dashboard"])
+            action()
+        except Exception as e:
+            # Log error and fall back to Dashboard safely
+            print("Screen load error for '{}': {}".format(screen, e))
+            import traceback
+            traceback.print_exc()
+            screens["Dashboard"]()
 
 
 if __name__ == "__main__":

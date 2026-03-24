@@ -7,7 +7,9 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image
 from ui.theme import THEME
-from ui.components import build_sidebar, ADMIN_NAV, NAV_ICONS
+from ui.components import (
+    build_sidebar, ADMIN_NAV, NAV_ICONS
+)
 
 
 class FinancialAnalytics(ctk.CTkFrame):
@@ -20,6 +22,7 @@ class FinancialAnalytics(ctk.CTkFrame):
         self.on_navigate = on_navigate
         self.on_logout   = on_logout
         self._avatar_img = None
+        self._logo_img   = None
         self.pack(fill="both", expand=True)
         self._build()
 
@@ -31,7 +34,7 @@ class FinancialAnalytics(ctk.CTkFrame):
 
     def _build_sidebar(self):
         outer = tk.Frame(
-            self, width=200, bg="#1a3a8a"
+            self, width=220, bg="#1a3a8a"
         )
         outer.pack(side="left", fill="y")
         outer.pack_propagate(False)
@@ -44,15 +47,23 @@ class FinancialAnalytics(ctk.CTkFrame):
             x=0, y=0, relwidth=1, relheight=1
         )
 
+        _last = [0, 0]
+
         def draw_grad(event=None):
+            if (event.width == _last[0] and
+                    event.height == _last[1]):
+                return
+            _last[0] = event.width
+            _last[1] = event.height
             grad_canvas.delete("grad")
-            w = grad_canvas.winfo_width()
-            h = grad_canvas.winfo_height()
+            w = event.width
+            h = event.height
             if w < 2 or h < 2:
                 return
             r1, g1, b1 = 0x1a, 0x3a, 0x8a
             r2, g2, b2 = 0x0d, 0x1f, 0x5c
-            for i in range(max(h, 1)):
+            band = 4
+            for i in range(0, max(h, 1), band):
                 t     = i / max(h, 1)
                 r     = int(r1 + (r2 - r1) * t)
                 g     = int(g1 + (g2 - g1) * t)
@@ -61,7 +72,7 @@ class FinancialAnalytics(ctk.CTkFrame):
                     r, g, b
                 )
                 grad_canvas.create_rectangle(
-                    0, i, w, i + 1,
+                    0, i, w, i + band,
                     fill=color, outline="",
                     tags="grad"
                 )
@@ -69,7 +80,8 @@ class FinancialAnalytics(ctk.CTkFrame):
         grad_canvas.bind("<Configure>", draw_grad)
 
         sidebar = ctk.CTkFrame(
-            outer, fg_color="transparent",
+            outer,
+            fg_color="transparent",
             corner_radius=0
         )
         sidebar.place(x=0, y=0, relwidth=1, relheight=1)
@@ -104,12 +116,24 @@ class FinancialAnalytics(ctk.CTkFrame):
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         # Nav buttons
-        for item in ADMIN_NAV:
-            icon      = NAV_ICONS.get(item, "●")
-            is_active = item == "Financial Analytics"
+        updated_nav = [
+            item.replace("Staff Control", "Account Management")
+            for item in ADMIN_NAV
+        ]
+        updated_icons = dict(NAV_ICONS)
+        updated_icons["Account Management"] = "👤"
+
+        for item in updated_nav:
+            display = item
+            icon    = updated_icons.get(item, "●")
+            nav_key = item.replace(
+                "Account Management", "Staff Control"
+            )
+            is_active = display == "Financial Analytics"
+
             btn = ctk.CTkButton(
                 sidebar,
-                text=icon + "  " + item,
+                text=icon + "  " + display,
                 fg_color="#2a52cc" if is_active
                 else "transparent",
                 text_color="#FFFFFF",
@@ -118,7 +142,7 @@ class FinancialAnalytics(ctk.CTkFrame):
                 font=("Arial", 12),
                 height=40,
                 corner_radius=8,
-                command=lambda i=item: self.on_navigate(i)
+                command=lambda k=nav_key: self.on_navigate(k)
             )
             btn.pack(fill="x", padx=10, pady=2)
 
@@ -132,7 +156,10 @@ class FinancialAnalytics(ctk.CTkFrame):
             height=38,
             corner_radius=8,
             command=lambda: self.on_navigate("Settings")
-        ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
+        ).pack(
+            side="bottom", fill="x",
+            padx=10, pady=(0, 4)
+        )
 
         ctk.CTkButton(
             sidebar, text="↩  Logout",
@@ -144,7 +171,10 @@ class FinancialAnalytics(ctk.CTkFrame):
             height=38,
             corner_radius=8,
             command=self.on_logout
-        ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
+        ).pack(
+            side="bottom", fill="x",
+            padx=10, pady=(0, 4)
+        )
 
     def _logo_placeholder(self, parent):
         canvas = tk.Canvas(
@@ -154,11 +184,13 @@ class FinancialAnalytics(ctk.CTkFrame):
         canvas.pack()
         canvas.create_oval(
             4, 4, 96, 96,
-            fill="#FFFFFF", outline="#5a7acc", width=2
+            fill="#FFFFFF",
+            outline="#5a7acc", width=2
         )
         canvas.create_text(
             50, 50, text="⛪",
-            font=("Arial", 36), fill="#1a3a8a"
+            font=("Arial", 36),
+            fill="#1a3a8a"
         )
 
     # ─── MAIN ─────────────────────────────────────────
@@ -179,8 +211,8 @@ class FinancialAnalytics(ctk.CTkFrame):
         )
 
         self._build_kpi_row(content)
-        self._build_income_vs_expense_chart(content)
-        self._build_income_bar_chart(content)
+        self._build_charts_row(content)
+        self._build_monthly_bar(content)
         self._build_forecast_table(content)
         self._build_expense_breakdown(content)
         self._build_category_table(content)
@@ -225,21 +257,38 @@ class FinancialAnalytics(ctk.CTkFrame):
         if os.path.exists(avatar_path):
             try:
                 img = Image.open(avatar_path).resize(
-                    (40, 40), Image.LANCZOS
+                    (38, 38), Image.LANCZOS
                 )
                 self._avatar_img = ctk.CTkImage(
                     light_image=img, dark_image=img,
-                    size=(40, 40)
+                    size=(38, 38)
                 )
                 ctk.CTkLabel(
                     right,
                     image=self._avatar_img,
                     text=""
-                ).pack(side="right", padx=(10, 0))
+                ).pack(side="right", padx=(8, 0))
             except Exception:
                 self._avatar_placeholder(right)
         else:
             self._avatar_placeholder(right)
+
+        # Notification bell
+        bell_frame = ctk.CTkFrame(
+            right,
+            fg_color="#F3F6FB",
+            corner_radius=20,
+            width=38, height=38
+        )
+        bell_frame.pack(side="right", padx=(0, 8))
+        bell_frame.pack_propagate(False)
+
+        ctk.CTkLabel(
+            bell_frame,
+            text="🔔",
+            font=("Arial", 16),
+            fg_color="transparent"
+        ).place(relx=0.5, rely=0.5, anchor="center")
 
         # Search
         search_frame = ctk.CTkFrame(
@@ -247,7 +296,7 @@ class FinancialAnalytics(ctk.CTkFrame):
             corner_radius=20, border_width=1,
             border_color=THEME["border"]
         )
-        search_frame.pack(side="right")
+        search_frame.pack(side="right", padx=(0, 8))
 
         ctk.CTkLabel(
             search_frame, text="🔍",
@@ -268,17 +317,19 @@ class FinancialAnalytics(ctk.CTkFrame):
 
     def _avatar_placeholder(self, parent):
         canvas = tk.Canvas(
-            parent, width=40, height=40,
+            parent, width=38, height=38,
             bg="#FFFFFF", highlightthickness=0
         )
-        canvas.pack(side="right", padx=(10, 0))
+        canvas.pack(side="right", padx=(8, 0))
         canvas.create_oval(
-            2, 2, 38, 38,
-            fill="#D0DCF0", outline="#AABBDD", width=1
+            2, 2, 36, 36,
+            fill="#D0DCF0",
+            outline="#AABBDD", width=1
         )
         canvas.create_text(
-            20, 20, text="👤",
-            font=("Arial", 16), fill="#1a2a4a"
+            19, 19, text="👤",
+            font=("Arial", 15),
+            fill="#1a2a4a"
         )
 
     # ─── KPI ROW ──────────────────────────────────────
@@ -286,28 +337,46 @@ class FinancialAnalytics(ctk.CTkFrame):
     def _build_kpi_row(self, parent):
         health = self.ai.check_financial_health()
 
-        kpi_frame = ctk.CTkFrame(
-            parent, fg_color="transparent"
+        section = ctk.CTkFrame(
+            parent, fg_color=THEME["bg_card"],
+            corner_radius=12, border_width=1,
+            border_color=THEME["border"]
         )
-        kpi_frame.pack(fill="x", pady=(0, 20))
-        kpi_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        section.pack(fill="x", pady=(0, 16))
+
+        ctk.CTkLabel(
+            section, text="Financial Analysis",
+            font=("Arial", 13, "bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=20, pady=(14, 10))
+
+        kpi_row = tk.Frame(
+            section, bg=THEME["bg_card"]
+        )
+        kpi_row.pack(
+            fill="x", padx=16, pady=(0, 16)
+        )
+        for i in range(3):
+            kpi_row.columnconfigure(i, weight=1)
 
         # Gradient card — Total Income
-        self._kpi_gradient(
-            kpi_frame, 0,
-            "₱ {:,.0f}".format(health["income"]),
+        self._kpi_gradient_cell(
+            kpi_row, 0,
+            "₱ {:,.2f}".format(health["income"]),
             "Total Donation",
             "Every Month",
-            "#1a3a8a", "#2a6dd9"
+            "#1a3a8a", "#2a6dd9",
+            padx=(0, 8)
         )
 
         # White card — Total Expenses
-        self._kpi_white(
-            kpi_frame, 1,
-            "₱ {:,.0f}".format(health["expenses"]),
+        self._kpi_white_cell(
+            kpi_row, 1,
+            "₱ {:,.2f}".format(health["expenses"]),
             "Total Expenses",
             "Every Month",
-            THEME["danger"]
+            THEME["danger"],
+            padx=(8, 8)
         )
 
         # White card — Net Balance
@@ -316,12 +385,13 @@ class FinancialAnalytics(ctk.CTkFrame):
             if health["net_balance"] >= 0
             else THEME["danger"]
         )
-        self._kpi_white(
-            kpi_frame, 2,
-            "₱ {:,.0f}".format(health["net_balance"]),
+        self._kpi_white_cell(
+            kpi_row, 2,
+            "₱ {:,.2f}".format(health["net_balance"]),
             "Net Balance",
             "Every Month",
-            net_color
+            net_color,
+            padx=(8, 0)
         )
 
         # Warnings
@@ -339,32 +409,35 @@ class FinancialAnalytics(ctk.CTkFrame):
                     "MEDIUM":   "#F57F17",
                 }.get(level, THEME["primary"])
                 warn = ctk.CTkFrame(
-                    parent, fg_color=bg, corner_radius=8
+                    section, fg_color=bg, corner_radius=8
                 )
-                warn.pack(fill="x", pady=(0, 4))
+                warn.pack(
+                    fill="x", padx=16, pady=(0, 4)
+                )
                 ctk.CTkLabel(
                     warn,
                     text="⚠ " + level + ": " + w["message"],
                     font=("Arial", 11, "bold"),
                     text_color=tc,
                     wraplength=900, justify="left"
-                ).pack(anchor="w", padx=16, pady=8)
+                ).pack(anchor="w", padx=14, pady=8)
+            ctk.CTkLabel(
+                section, text=""
+            ).pack(pady=2)
 
-    def _kpi_gradient(self, parent, col, value, label,
-                      sublabel, c1, c2):
-        outer = ctk.CTkFrame(
-            parent, fg_color="transparent",
-            corner_radius=14
-        )
+    def _kpi_gradient_cell(self, parent, col, value,
+                            label, sublabel, c1, c2,
+                            padx=(0, 0)):
+        outer = tk.Frame(parent, bg=THEME["bg_card"])
         outer.grid(
             row=0, column=col,
-            padx=(0 if col == 0 else 8, 8),
-            sticky="ew"
+            sticky="ew", padx=padx
         )
 
         canvas = tk.Canvas(
-            outer, height=110,
-            highlightthickness=0, bd=0
+            outer, height=100,
+            highlightthickness=0, bd=0,
+            bg=THEME["bg_card"]
         )
         canvas.pack(fill="both", expand=True)
 
@@ -379,9 +452,10 @@ class FinancialAnalytics(ctk.CTkFrame):
             canvas.delete("all")
             w = canvas.winfo_width()
             h = canvas.winfo_height()
-            if w < 2 or h < 2:
+            if w < 10 or h < 10:
                 return
-            for i in range(max(w, 1)):
+            band = 3
+            for i in range(0, max(w, 1), band):
                 t     = i / max(w, 1)
                 r     = int(r1 + (r2 - r1) * t)
                 g     = int(g1 + (g2 - g1) * t)
@@ -390,47 +464,50 @@ class FinancialAnalytics(ctk.CTkFrame):
                     r, g, b
                 )
                 canvas.create_rectangle(
-                    i, 0, i + 1, h,
+                    i, 0, i + band, h,
                     fill=color, outline=""
                 )
             canvas.create_text(
-                20, 28,
+                18, 28,
                 text=str(value),
                 font=("Arial", 18, "bold"),
                 fill="#FFFFFF", anchor="w"
             )
             canvas.create_text(
-                20, 56,
+                18, 54,
                 text=sublabel,
                 font=("Arial", 9),
                 fill="#AABBEE", anchor="w"
             )
             canvas.create_text(
-                20, 78,
+                18, 74,
                 text=label,
                 font=("Arial", 11, "bold"),
                 fill="#FFFFFF", anchor="w"
             )
 
         canvas.bind("<Configure>", draw)
-        outer.after(30, draw)
+        canvas.after(30, draw)
 
-    def _kpi_white(self, parent, col, value, label,
-                   sublabel, value_color):
+    def _kpi_white_cell(self, parent, col, value,
+                         label, sublabel, value_color,
+                         padx=(0, 0)):
         card = ctk.CTkFrame(
-            parent, fg_color=THEME["bg_card"],
-            corner_radius=14, border_width=1,
+            parent,
+            fg_color=THEME["bg_card"],
+            corner_radius=12,
+            border_width=1,
             border_color=THEME["border"]
         )
         card.grid(
-            row=0, column=col, padx=8,
-            sticky="ew", ipady=10
+            row=0, column=col,
+            sticky="ew", padx=padx, ipady=8
         )
         ctk.CTkLabel(
             card, text=str(value),
             font=("Arial", 18, "bold"),
             text_color=value_color
-        ).pack(anchor="w", padx=20, pady=(18, 2))
+        ).pack(anchor="w", padx=20, pady=(16, 2))
         ctk.CTkLabel(
             card, text=sublabel,
             font=("Arial", 9),
@@ -440,20 +517,32 @@ class FinancialAnalytics(ctk.CTkFrame):
             card, text=label,
             font=("Arial", 11, "bold"),
             text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=20, pady=(2, 18))
+        ).pack(anchor="w", padx=20, pady=(2, 16))
 
-    # ─── INCOME VS EXPENSE CHART ──────────────────────
+    # ─── CHARTS ROW — Income vs Expense + Revenue Mix ──
 
-    def _build_income_vs_expense_chart(self, parent):
-        card = ctk.CTkFrame(
-            parent, fg_color=THEME["bg_card"],
+    def _build_charts_row(self, parent):
+        row = ctk.CTkFrame(
+            parent, fg_color="transparent"
+        )
+        row.pack(fill="x", pady=(0, 16))
+        row.grid_columnconfigure(0, weight=3)
+        row.grid_columnconfigure(1, weight=2)
+
+        # Left — Income vs Expense line chart
+        left_card = ctk.CTkFrame(
+            row, fg_color=THEME["bg_card"],
             corner_radius=12, border_width=1,
             border_color=THEME["border"]
         )
-        card.pack(fill="x", pady=(0, 16))
+        left_card.grid(
+            row=0, column=0,
+            sticky="nsew", padx=(0, 10)
+        )
 
         ctk.CTkLabel(
-            card, text="Income vs Expense",
+            left_card,
+            text="Income vs Expense Over Time",
             font=("Arial", 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=16, pady=(14, 0))
@@ -461,79 +550,57 @@ class FinancialAnalytics(ctk.CTkFrame):
         income_df  = self.db.get_monthly_summary()
         expense_df = self.db.get_monthly_expenses()
 
-        if income_df.empty:
-            ctk.CTkLabel(
-                card, text="No data available.",
-                font=("Arial", 12),
-                text_color=THEME["text_sub"]
-            ).pack(pady=20)
-            return
-
         try:
-            fig = Figure(figsize=(8, 3.2), dpi=90)
+            fig = Figure(figsize=(5, 3.0), dpi=90)
             fig.patch.set_facecolor(THEME["bg_card"])
             ax = fig.add_subplot(111)
             ax.set_facecolor("#F8FAFF")
 
-            inc = (
-                income_df.groupby("month")["total"]
-                .sum().reset_index()
-            )
-            inc_labels = [str(m) for m in inc["month"]]
-
-            ax.plot(
-                inc_labels, inc["total"].values,
-                color="#4F86F7", linewidth=2.5,
-                marker="o", markersize=5,
-                label="Income"
-            )
-            ax.fill_between(
-                inc_labels, inc["total"].values, 0,
-                alpha=0.15, color="#4F86F7"
-            )
+            if not income_df.empty:
+                inc = (
+                    income_df.groupby("month")["total"]
+                    .sum().reset_index()
+                )
+                inc_lbl = [str(m) for m in inc["month"]]
+                ax.plot(
+                    inc_lbl, inc["total"].values,
+                    color="#4F86F7", linewidth=2.5,
+                    marker="o", markersize=4,
+                    label="Income"
+                )
+                ax.fill_between(
+                    inc_lbl, inc["total"].values, 0,
+                    alpha=0.12, color="#4F86F7"
+                )
 
             if not expense_df.empty:
                 exp = (
                     expense_df.groupby("month")["total"]
                     .sum().reset_index()
                 )
-                exp_labels = [str(m) for m in exp["month"]]
+                exp_lbl = [str(m) for m in exp["month"]]
                 if len(exp) >= 2:
                     ax.plot(
-                        exp_labels, exp["total"].values,
+                        exp_lbl, exp["total"].values,
                         color="#FF4D4D", linewidth=2,
                         marker="s", markersize=4,
                         label="Expenses"
                     )
                     ax.fill_between(
-                        exp_labels, exp["total"].values, 0,
-                        alpha=0.10, color="#FF4D4D"
+                        exp_lbl, exp["total"].values, 0,
+                        alpha=0.08, color="#FF4D4D"
                     )
                 elif len(exp) == 1:
                     ax.scatter(
-                        exp_labels, exp["total"].values,
+                        exp_lbl, exp["total"].values,
                         color="#FF4D4D", s=60,
-                        label="Expenses (1 month)",
-                        zorder=5
+                        label="Expenses"
                     )
 
             # Forecasts
-            exp_result = self.ai.run_expense_forecast()
-            if "error" not in exp_result:
-                fc     = exp_result["forecast_df"]
-                fc_lbl = [
-                    d.strftime("%Y-%m") for d in fc["ds"]
-                ]
-                ax.plot(
-                    fc_lbl, fc["yhat"].values,
-                    color="#FF4D4D", linewidth=1.5,
-                    linestyle="--", alpha=0.7,
-                    label="Expense Forecast"
-                )
-
             inc_result = self.ai.run_forecast()
             if "error" not in inc_result:
-                fi     = inc_result["forecast_df"]
+                fi  = inc_result["forecast_df"]
                 fi_lbl = [
                     d.strftime("%Y-%m") for d in fi["ds"]
                 ]
@@ -541,7 +608,20 @@ class FinancialAnalytics(ctk.CTkFrame):
                     fi_lbl, fi["yhat"].values,
                     color="#4F86F7", linewidth=1.5,
                     linestyle="--", alpha=0.7,
-                    label="Income Forecast"
+                    label="Inc. Forecast"
+                )
+
+            exp_result = self.ai.run_expense_forecast()
+            if "error" not in exp_result:
+                fe  = exp_result["forecast_df"]
+                fe_lbl = [
+                    d.strftime("%Y-%m") for d in fe["ds"]
+                ]
+                ax.plot(
+                    fe_lbl, fe["yhat"].values,
+                    color="#FF4D4D", linewidth=1.5,
+                    linestyle="--", alpha=0.7,
+                    label="Exp. Forecast"
                 )
 
             ax.yaxis.set_major_formatter(
@@ -564,7 +644,9 @@ class FinancialAnalytics(ctk.CTkFrame):
             ax.legend(fontsize=7, frameon=False)
             fig.tight_layout()
 
-            canvas = FigureCanvasTkAgg(fig, master=card)
+            canvas = FigureCanvasTkAgg(
+                fig, master=left_card
+            )
             canvas.draw()
             canvas.get_tk_widget().pack(
                 fill="x", padx=10, pady=10
@@ -572,15 +654,108 @@ class FinancialAnalytics(ctk.CTkFrame):
 
         except Exception as e:
             ctk.CTkLabel(
-                card,
+                left_card,
                 text="Chart error: " + str(e),
-                font=("Arial", 11),
+                font=("Arial", 10),
                 text_color=THEME["danger"]
             ).pack(pady=20)
 
-    # ─── MONTHLY BAR CHART ────────────────────────────
+        # Right — Revenue Mix donut
+        right_card = ctk.CTkFrame(
+            row, fg_color=THEME["bg_card"],
+            corner_radius=12, border_width=1,
+            border_color=THEME["border"]
+        )
+        right_card.grid(
+            row=0, column=1,
+            sticky="nsew", padx=(10, 0)
+        )
 
-    def _build_income_bar_chart(self, parent):
+        ctk.CTkLabel(
+            right_card,
+            text="Revenue Mix",
+            font=("Arial", 13, "bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=16, pady=(14, 0))
+
+        result = self.ai.run_forecast()
+        if "error" not in result:
+            try:
+                totals = (
+                    result["category_df"]
+                    .groupby("category")["amount"]
+                    .sum()
+                )
+                colors = [
+                    "#1a3a8a", "#4F86F7", "#7BA7F7",
+                    "#FFC107", "#28A745", "#9B59B6"
+                ]
+
+                fig2 = Figure(figsize=(3, 3.0), dpi=90)
+                fig2.patch.set_facecolor(THEME["bg_card"])
+                ax2 = fig2.add_subplot(111)
+                ax2.set_facecolor(THEME["bg_card"])
+
+                def autopct_filter(pct):
+                    return (
+                        "{:.0f}%".format(pct)
+                        if pct > 3 else ""
+                    )
+
+                wedges, _, autotexts = ax2.pie(
+                    totals.values,
+                    labels=None,
+                    colors=colors[:len(totals)],
+                    autopct=autopct_filter,
+                    startangle=90,
+                    pctdistance=0.82,
+                    wedgeprops=dict(
+                        width=0.55,
+                        edgecolor="white",
+                        linewidth=1.5
+                    )
+                )
+                for t in autotexts:
+                    t.set_fontsize(8)
+                    t.set_color("white")
+                    t.set_fontweight("bold")
+
+                ax2.legend(
+                    wedges, totals.index,
+                    loc="lower center",
+                    bbox_to_anchor=(0.5, -0.20),
+                    ncol=2, fontsize=7,
+                    frameon=False
+                )
+                fig2.tight_layout(pad=1.5)
+
+                canvas2 = FigureCanvasTkAgg(
+                    fig2, master=right_card
+                )
+                canvas2.draw()
+                canvas2.get_tk_widget().pack(
+                    fill="both", expand=True,
+                    padx=10, pady=10
+                )
+
+            except Exception as e:
+                ctk.CTkLabel(
+                    right_card,
+                    text="Chart error: " + str(e),
+                    font=("Arial", 10),
+                    text_color=THEME["danger"]
+                ).pack(pady=20)
+        else:
+            ctk.CTkLabel(
+                right_card,
+                text="Not enough data.",
+                font=("Arial", 12),
+                text_color=THEME["text_sub"]
+            ).pack(pady=30)
+
+    # ─── MONTHLY BAR ──────────────────────────────────
+
+    def _build_monthly_bar(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
             corner_radius=12, border_width=1,
@@ -610,7 +785,7 @@ class FinancialAnalytics(ctk.CTkFrame):
             )
             labels = [str(m) for m in monthly["month"]]
 
-            fig = Figure(figsize=(8, 3), dpi=90)
+            fig = Figure(figsize=(9, 2.8), dpi=90)
             fig.patch.set_facecolor(THEME["bg_card"])
             ax = fig.add_subplot(111)
             ax.set_facecolor("#F8FAFF")
@@ -652,9 +827,131 @@ class FinancialAnalytics(ctk.CTkFrame):
             ctk.CTkLabel(
                 card,
                 text="Chart error: " + str(e),
-                font=("Arial", 11),
+                font=("Arial", 10),
                 text_color=THEME["danger"]
             ).pack(pady=20)
+
+        # ── TOP DONORS TABLE ──────────────────────────
+        ctk.CTkFrame(
+            card, fg_color=THEME["border"], height=1
+        ).pack(fill="x", padx=16, pady=(0, 8))
+
+        ctk.CTkLabel(
+            card,
+            text="Top Contributors",
+            font=("Arial", 12, "bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=16, pady=(8, 6))
+
+        # Get top donors from DB
+        try:
+            conn = self.db._get_connection()
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT
+                    donor_name,
+                    SUM(amount) as total,
+                    COUNT(*) as count,
+                    MAX(date) as last_date
+                FROM transactions
+                WHERE type = 'INFLOW'
+                AND donor_name IS NOT NULL
+                AND donor_name != ''
+                GROUP BY donor_name
+                ORDER BY total DESC
+                LIMIT 10
+            """)
+            top_donors = cursor.fetchall()
+            conn.close()
+        except Exception:
+            top_donors = []
+
+        if not top_donors:
+            ctk.CTkLabel(
+                card,
+                text="No donor data available.",
+                font=("Arial", 12),
+                text_color=THEME["text_sub"]
+            ).pack(pady=12)
+            return
+
+        # Table header
+        headers = [
+            "Rank", "Donor Name", "Total Contributed",
+            "Transactions", "Last Donation"
+        ]
+        weights = [1, 3, 2, 1, 2]
+
+        header_row = ctk.CTkFrame(
+            card, fg_color="#F0F4FF", corner_radius=0
+        )
+        header_row.pack(fill="x", padx=1)
+        for i, (h, w) in enumerate(zip(headers, weights)):
+            header_row.grid_columnconfigure(i, weight=w)
+            ctk.CTkLabel(
+                header_row, text=h,
+                font=("Arial", 11, "bold"),
+                text_color=THEME["primary"],
+                anchor="w"
+            ).grid(
+                row=0, column=i,
+                sticky="ew", padx=12, pady=10
+            )
+
+        # Medal colors for top 3
+        medals = {0: "🥇", 1: "🥈", 2: "🥉"}
+
+        for idx, (name, total, count, last_date) in \
+                enumerate(top_donors):
+            bg = "#FAFBFF" if idx % 2 == 0 else "#FFFFFF"
+            row_frame = ctk.CTkFrame(
+                card, fg_color=bg, corner_radius=0
+            )
+            row_frame.pack(fill="x", padx=1)
+
+            rank_text = medals.get(
+                idx, str(idx + 1)
+            )
+
+            # Color top 3 gold
+            name_color = (
+                "#B8860B" if idx == 0
+                else "#888888" if idx == 1
+                else "#CD7F32" if idx == 2
+                else THEME["text_main"]
+            )
+
+            values = [
+                rank_text,
+                str(name or "Anonymous"),
+                "₱ {:,.0f}".format(total),
+                str(count) + " times",
+                str(last_date)[:10]
+                if last_date else "-"
+            ]
+
+            for i, (val, w) in enumerate(
+                    zip(values, weights)
+            ):
+                row_frame.grid_columnconfigure(i, weight=w)
+                color = (
+                    name_color if i in (0, 1)
+                    else THEME["primary"] if i == 2
+                    else THEME["text_sub"]
+                )
+                ctk.CTkLabel(
+                    row_frame, text=val,
+                    font=("Arial", 12,
+                          "bold" if i in (0, 1, 2)
+                          else "normal"),
+                    text_color=color,
+                    anchor="w"
+                ).grid(
+                    row=0, column=i,
+                    sticky="ew", padx=12, pady=9
+                )
+
+        ctk.CTkLabel(card, text="").pack(pady=4)
 
     # ─── FORECAST TABLE ───────────────────────────────
 
@@ -675,7 +972,9 @@ class FinancialAnalytics(ctk.CTkFrame):
         result = self.ai.run_forecast(months_ahead=6)
         if "error" in result:
             ctk.CTkLabel(
-                card, text=result["error"],
+                card,
+                text="Not enough data for forecast yet. "
+                     "Need at least 3 months of donations.",
                 font=("Arial", 12),
                 text_color=THEME["text_sub"]
             ).pack(pady=20)
@@ -688,7 +987,7 @@ class FinancialAnalytics(ctk.CTkFrame):
         weights = [1, 1, 1, 1]
 
         header_row = ctk.CTkFrame(
-            card, fg_color="#F8F9FA"
+            card, fg_color="#F0F4FF", corner_radius=0
         )
         header_row.pack(fill="x", padx=1)
         for i, (h, w) in enumerate(zip(headers, weights)):
@@ -696,15 +995,18 @@ class FinancialAnalytics(ctk.CTkFrame):
             ctk.CTkLabel(
                 header_row, text=h,
                 font=("Arial", 11, "bold"),
-                text_color=THEME["text_sub"], anchor="w"
+                text_color=THEME["primary"], anchor="w"
             ).grid(
                 row=0, column=i,
-                sticky="ew", padx=12, pady=8
+                sticky="ew", padx=16, pady=10
             )
 
-        for _, row in result["forecast_df"].iterrows():
+        for idx, (_, row) in enumerate(
+            result["forecast_df"].iterrows()
+        ):
+            bg = "#FAFBFF" if idx % 2 == 0 else "#FFFFFF"
             row_frame = ctk.CTkFrame(
-                card, fg_color="transparent"
+                card, fg_color=bg, corner_radius=0
             )
             row_frame.pack(fill="x", padx=1)
             values = [
@@ -713,18 +1015,25 @@ class FinancialAnalytics(ctk.CTkFrame):
                 "₱ {:,.0f}".format(row["yhat_lower"]),
                 "₱ {:,.0f}".format(row["yhat_upper"]),
             ]
+            colors_list = [
+                THEME["text_main"],
+                THEME["primary"],
+                THEME["success"],
+                THEME["danger"]
+            ]
             for i, (val, w) in enumerate(
                 zip(values, weights)
             ):
                 row_frame.grid_columnconfigure(i, weight=w)
                 ctk.CTkLabel(
                     row_frame, text=val,
-                    font=("Arial", 12),
-                    text_color=THEME["text_main"],
+                    font=("Arial", 12,
+                          "bold" if i > 0 else "normal"),
+                    text_color=colors_list[i],
                     anchor="w"
                 ).grid(
                     row=0, column=i,
-                    sticky="ew", padx=12, pady=7
+                    sticky="ew", padx=16, pady=9
                 )
 
     # ─── EXPENSE BREAKDOWN ────────────────────────────
@@ -746,15 +1055,28 @@ class FinancialAnalytics(ctk.CTkFrame):
         expense_df = self.db.get_monthly_expenses()
 
         if expense_df.empty:
+            empty = ctk.CTkFrame(
+                card, fg_color="#FFF9F0",
+                corner_radius=8
+            )
+            empty.pack(
+                fill="x", padx=16, pady=(8, 16)
+            )
             ctk.CTkLabel(
-                card,
-                text="No approved expenses yet. "
-                     "Submit and approve expense requests "
-                     "to see the breakdown here.",
-                font=("Arial", 12),
+                empty,
+                text="💡  No approved expenses yet.",
+                font=("Arial", 12, "bold"),
+                text_color="#E65100"
+            ).pack(anchor="w", padx=16, pady=(12, 4))
+            ctk.CTkLabel(
+                empty,
+                text="Submit and approve expense requests "
+                     "in Expense Management to see the "
+                     "breakdown here.",
+                font=("Arial", 11),
                 text_color=THEME["text_sub"],
-                wraplength=700, justify="left"
-            ).pack(anchor="w", padx=20, pady=20)
+                wraplength=800, justify="left"
+            ).pack(anchor="w", padx=16, pady=(0, 12))
             return
 
         try:
@@ -766,15 +1088,14 @@ class FinancialAnalytics(ctk.CTkFrame):
             grand_total = totals["total"].sum()
             colors = [
                 "#FF4D4D", "#FF8C42", "#FFC107",
-                "#E65100", "#B71C1C", "#D84315",
-                "#FF7043"
+                "#E65100", "#B71C1C", "#D84315", "#FF7043"
             ]
 
             if len(totals) >= 2:
-                fig = Figure(figsize=(8, 3), dpi=90)
+                fig = Figure(figsize=(9, 2.8), dpi=90)
                 fig.patch.set_facecolor(THEME["bg_card"])
                 ax = fig.add_subplot(111)
-                ax.set_facecolor("#F8FAFF")
+                ax.set_facecolor("#FFF8F8")
                 ax.barh(
                     totals["category"].values,
                     totals["total"].values,
@@ -788,8 +1109,8 @@ class FinancialAnalytics(ctk.CTkFrame):
                 )
                 ax.spines["top"].set_visible(False)
                 ax.spines["right"].set_visible(False)
-                ax.spines["left"].set_color("#E0E8FF")
-                ax.spines["bottom"].set_color("#E0E8FF")
+                ax.spines["left"].set_color("#FFE0E0")
+                ax.spines["bottom"].set_color("#FFE0E0")
                 ax.tick_params(
                     axis="x", colors=THEME["text_sub"],
                     labelsize=7
@@ -799,19 +1120,24 @@ class FinancialAnalytics(ctk.CTkFrame):
                     labelsize=8
                 )
                 fig.tight_layout()
-                canvas = FigureCanvasTkAgg(fig, master=card)
+                canvas = FigureCanvasTkAgg(
+                    fig, master=card
+                )
                 canvas.draw()
                 canvas.get_tk_widget().pack(
                     fill="x", padx=10, pady=10
                 )
 
+            # Table
             headers = [
-                "Category", "Total (₱)", "% of Expenses"
+                "Category", "Total (₱)",
+                "% of Expenses", "Status"
             ]
-            weights = [2, 1, 1]
+            weights = [2, 1, 1, 1]
 
             header_row = ctk.CTkFrame(
-                card, fg_color="#F8F9FA"
+                card, fg_color="#FFF0F0",
+                corner_radius=0
             )
             header_row.pack(fill="x", padx=1)
             for i, (h, w) in enumerate(
@@ -821,51 +1147,73 @@ class FinancialAnalytics(ctk.CTkFrame):
                 ctk.CTkLabel(
                     header_row, text=h,
                     font=("Arial", 11, "bold"),
-                    text_color=THEME["text_sub"],
+                    text_color=THEME["danger"],
                     anchor="w"
                 ).grid(
                     row=0, column=i,
-                    sticky="ew", padx=12, pady=8
+                    sticky="ew", padx=16, pady=10
                 )
 
-            for _, row in totals.iterrows():
+            for idx, (_, row) in enumerate(
+                totals.iterrows()
+            ):
                 pct = round(
                     row["total"] / grand_total * 100, 1
                 )
+                bg = "#FFFAFA" if idx % 2 == 0 \
+                    else "#FFFFFF"
                 row_frame = ctk.CTkFrame(
-                    card, fg_color="transparent"
+                    card, fg_color=bg, corner_radius=0
                 )
                 row_frame.pack(fill="x", padx=1)
+
+                status = (
+                    "🔴 High" if pct > 40
+                    else "🟡 Medium" if pct > 15
+                    else "🟢 Low"
+                )
+                status_color = (
+                    THEME["danger"] if pct > 40
+                    else THEME["warning"] if pct > 15
+                    else THEME["success"]
+                )
+
                 for i, (val, w) in enumerate(zip(
                     [
                         str(row["category"]),
                         "₱ {:,.0f}".format(row["total"]),
-                        str(pct) + "%"
+                        str(pct) + "%",
+                        status
                     ],
                     weights
                 )):
                     row_frame.grid_columnconfigure(
                         i, weight=w
                     )
+                    color = (
+                        status_color if i == 3
+                        else THEME["text_main"]
+                    )
                     ctk.CTkLabel(
                         row_frame, text=val,
-                        font=("Arial", 12),
-                        text_color=THEME["text_main"],
-                        anchor="w"
+                        font=("Arial", 12,
+                              "bold" if i in (1, 2)
+                              else "normal"),
+                        text_color=color, anchor="w"
                     ).grid(
                         row=0, column=i,
-                        sticky="ew", padx=12, pady=7
+                        sticky="ew", padx=16, pady=9
                     )
 
         except Exception as e:
             ctk.CTkLabel(
                 card,
-                text="Chart error: " + str(e),
+                text="Error: " + str(e),
                 font=("Arial", 11),
                 text_color=THEME["danger"]
             ).pack(pady=20)
 
-    # ─── CATEGORY TABLE ───────────────────────────────
+    # ─── REVENUE BY CATEGORY ──────────────────────────
 
     def _build_category_table(self, parent):
         card = ctk.CTkFrame(
@@ -884,7 +1232,8 @@ class FinancialAnalytics(ctk.CTkFrame):
         result = self.ai.run_forecast()
         if "error" in result:
             ctk.CTkLabel(
-                card, text="Not enough data.",
+                card,
+                text="Not enough data yet.",
                 font=("Arial", 12),
                 text_color=THEME["text_sub"]
             ).pack(pady=20)
@@ -894,13 +1243,18 @@ class FinancialAnalytics(ctk.CTkFrame):
             result["category_df"]
             .groupby("category")["amount"]
             .sum().reset_index()
+            .sort_values("amount", ascending=False)
         )
         total_sum = totals["amount"].sum()
-        headers   = ["Category", "Total (₱)", "% of Revenue"]
-        weights   = [2, 1, 1]
+
+        headers = [
+            "Category", "Total (₱)",
+            "% of Revenue", "Trend"
+        ]
+        weights = [2, 1, 1, 1]
 
         header_row = ctk.CTkFrame(
-            card, fg_color="#F8F9FA"
+            card, fg_color="#F0F4FF", corner_radius=0
         )
         header_row.pack(fill="x", padx=1)
         for i, (h, w) in enumerate(zip(headers, weights)):
@@ -908,37 +1262,57 @@ class FinancialAnalytics(ctk.CTkFrame):
             ctk.CTkLabel(
                 header_row, text=h,
                 font=("Arial", 11, "bold"),
-                text_color=THEME["text_sub"], anchor="w"
+                text_color=THEME["primary"], anchor="w"
             ).grid(
                 row=0, column=i,
-                sticky="ew", padx=12, pady=8
+                sticky="ew", padx=16, pady=10
             )
 
-        for _, row in totals.sort_values(
-            "amount", ascending=False
-        ).iterrows():
+        for idx, (_, row) in enumerate(
+            totals.iterrows()
+        ):
             pct = round(
                 row["amount"] / total_sum * 100, 1
             )
+            bg = "#FAFBFF" if idx % 2 == 0 else "#FFFFFF"
             row_frame = ctk.CTkFrame(
-                card, fg_color="transparent"
+                card, fg_color=bg, corner_radius=0
             )
             row_frame.pack(fill="x", padx=1)
+
+            trend = (
+                "↑ High" if pct > 30
+                else "→ Medium" if pct > 10
+                else "↓ Low"
+            )
+            trend_color = (
+                THEME["success"] if pct > 30
+                else THEME["warning"] if pct > 10
+                else THEME["danger"]
+            )
+
             for i, (val, w) in enumerate(zip(
                 [
                     str(row["category"]),
                     "₱ {:,.0f}".format(row["amount"]),
-                    str(pct) + "%"
+                    str(pct) + "%",
+                    trend
                 ],
                 weights
             )):
                 row_frame.grid_columnconfigure(i, weight=w)
+                color = (
+                    trend_color if i == 3
+                    else THEME["primary"] if i == 1
+                    else THEME["text_main"]
+                )
                 ctk.CTkLabel(
                     row_frame, text=val,
-                    font=("Arial", 12),
-                    text_color=THEME["text_main"],
-                    anchor="w"
+                    font=("Arial", 12,
+                          "bold" if i in (1, 2)
+                          else "normal"),
+                    text_color=color, anchor="w"
                 ).grid(
                     row=0, column=i,
-                    sticky="ew", padx=12, pady=7
+                    sticky="ew", padx=16, pady=9
                 )
