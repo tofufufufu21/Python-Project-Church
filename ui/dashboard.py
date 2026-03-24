@@ -159,7 +159,7 @@ class AdminDashboard(ctk.CTkFrame):
                 text_color="#FFFFFF",
                 hover_color="#2a4aaa",
                 anchor="w",
-                font=("Arial", 12),
+                font=("Arial", 16),
                 height=40,
                 corner_radius=8,
                 command=lambda i=item: self.on_navigate(i)
@@ -174,7 +174,7 @@ class AdminDashboard(ctk.CTkFrame):
             text_color="#AABBDD",
             hover_color="#2a4aaa",
             anchor="w",
-            font=("Arial", 12),
+            font=("Arial", 14),
             height=38,
             corner_radius=8,
             command=lambda: self.on_navigate("Settings")
@@ -190,7 +190,7 @@ class AdminDashboard(ctk.CTkFrame):
             text_color="#FF8888",
             hover_color="#2a4aaa",
             anchor="w",
-            font=("Arial", 12),
+            font=("Arial", 14),
             height=38,
             corner_radius=8,
             command=self.on_logout
@@ -238,7 +238,7 @@ class AdminDashboard(ctk.CTkFrame):
 
         self.refresh_label = ctk.CTkLabel(
             refresh_bar, text="● Live",
-            font=("Arial", 10),
+            font=("Arial", 12),
             text_color=THEME["success"]
         )
         self.refresh_label.pack(side="right")
@@ -246,7 +246,7 @@ class AdminDashboard(ctk.CTkFrame):
         self.last_updated_label = ctk.CTkLabel(
             refresh_bar,
             text="Last updated: --",
-            font=("Arial", 10),
+            font=("Arial", 12),
             text_color=THEME["text_sub"]
         )
         self.last_updated_label.pack(
@@ -255,7 +255,7 @@ class AdminDashboard(ctk.CTkFrame):
 
         ctk.CTkButton(
             refresh_bar, text="Refresh Now",
-            font=("Arial", 10),
+            font=("Arial", 12),
             height=26, width=90,
             corner_radius=6,
             fg_color=THEME["bg_card"],
@@ -277,7 +277,7 @@ class AdminDashboard(ctk.CTkFrame):
         ctk.CTkLabel(
             self.content,
             text="Dashboard Overview",
-            font=("Arial", 15, "bold"),
+            font=("Arial", 18, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", pady=(0, 12))
 
@@ -625,110 +625,46 @@ class AdminDashboard(ctk.CTkFrame):
     # ─── KPI CARDS ────────────────────────────────────
 
     def _build_kpi_cards(self, kpi, net_color, pending_label, pending_color):
-        # Enforce 4 perfectly equal columns using the 'uniform' parameter
-        for i in range(4):
-            self.kpi_frame.columnconfigure(i, weight=1, uniform="kpi_group")
+        for w in self.kpi_frame.winfo_children():
+            w.destroy()
 
-        # Target image uses a deep blue for the numbers in white cards
         target_blue = "#13009A"
 
         cards = [
-            {
-                "value": "20,000.00",  # Using static target data for testing styling
-                "label": "Total Donation",
-                "sub": "",
-                "gradient": True,
-                "c1": "#4FC3F7",  # Adjusted to match the lighter blue-cyan gradient
-                "c2": "#1976D2",
-                "vcolor": "#FFFFFF"
-            },
-            {
-                "value": "10,000.00",
-                "label": "Total Expenses",
-                "sub": "Every Month",
-                "gradient": False,
-                "vcolor": target_blue
-            },
-            {
-                "value": "10,000.00",
-                "label": "Net Balance",
-                "sub": "Every Month",
-                "gradient": False,
-                "vcolor": target_blue
-            },
-            {
-                "value": "None Pending",
-                "label": "Expense Request",
-                "sub": "",
-                "gradient": False,
-                "vcolor": target_blue
-            },
+            # Solid deep blue ensures corner_radius=15 applies perfectly without canvas tearing
+            {"value": "20,000.00", "label": "Total Donation", "sub": "", "bg": "#1D8ED2", "vcolor": "#FFFFFF"},
+            {"value": "10,000.00", "label": "Total Expenses", "sub": "Every Month", "bg": THEME["bg_card"],
+             "vcolor": target_blue},
+            {"value": "10,000.00", "label": "Net Balance", "sub": "Every Month", "bg": THEME["bg_card"],
+             "vcolor": target_blue},
+            {"value": "None Pending", "label": "Expense Request", "sub": "", "bg": THEME["bg_card"],
+             "vcolor": target_blue},
         ]
 
+        # Use pure pack layout to prevent grid crashes
         for col, card in enumerate(cards):
-            # Equal padding between cards
             padx = (0, 8) if col == 0 else ((8, 0) if col == 3 else (4, 4))
+            self._kpi_cell(padx, card["value"], card["label"], card["sub"], card["bg"], card["vcolor"])
 
-            if card["gradient"]:
-                self._kpi_gradient_cell(
-                    col, padx, card["value"], card["label"], card["c1"], card["c2"]
-                )
-            else:
-                self._kpi_white_cell(
-                    col, padx, card["value"], card["label"], card["sub"], card["vcolor"]
-                )
-
-    def _kpi_gradient_cell(self, col, padx, value, label, c1, c2):
-        # Wrap the canvas in a CTkFrame to enforce size and rounded corners
-        outer = ctk.CTkFrame(self.kpi_frame, height=110, corner_radius=14, fg_color="#1976D2")
-        outer.grid(row=0, column=col, sticky="nsew", padx=padx, pady=4)
-        outer.grid_propagate(False)  # Prevents the frame from shrinking to text size
-
-        # Note: True rounded corners with a gradient in pure Tkinter is complex,
-        # so relying on a solid fallback color for the CTkFrame edges helps.
-        canvas = tk.Canvas(outer, highlightthickness=0, bd=0, bg="#1976D2")
-        canvas.place(relwidth=1, relheight=1)
-
-        r1, g1, b1 = int(c1[1:3], 16), int(c1[3:5], 16), int(c1[5:7], 16)
-        r2, g2, b2 = int(c2[1:3], 16), int(c2[3:5], 16), int(c2[5:7], 16)
-
-        def draw(event=None):
-            canvas.delete("all")
-            w, h = canvas.winfo_width(), canvas.winfo_height()
-            if w < 10 or h < 10: return
-
-            # Draw gradient horizontally based on target image
-            for i in range(w):
-                t = i / w
-                r, g, b = int(r1 + (r2 - r1) * t), int(g1 + (g2 - g1) * t), int(b1 + (b2 - b1) * t)
-                color = f"#{r:02x}{g:02x}{b:02x}"
-                canvas.create_line(i, 0, i, h, fill=color)
-
-            # Place text manually, matching target padding
-            canvas.create_text(20, 35, text=str(value), font=("Arial", 22, "bold"), fill="#FFFFFF", anchor="w")
-            canvas.create_text(20, 80, text=label, font=("Arial", 11, "bold"), fill="#FFFFFF", anchor="w")
-
-        canvas.bind("<Configure>", draw)
-        canvas.after(20, draw)
-
-    def _kpi_white_cell(self, col, padx, value, label, sublabel, value_color):
+    def _kpi_cell(self, padx, value, label, sublabel, bg_color, value_color):
         card = ctk.CTkFrame(
-            self.kpi_frame, fg_color=THEME["bg_card"],
-            corner_radius=14, border_width=1, border_color=THEME["border"],
-            height=110  # Fixed height to perfectly match the gradient cell
+            self.kpi_frame, fg_color=bg_color,
+            corner_radius=15, border_width=1 if bg_color == THEME["bg_card"] else 0,
+            border_color=THEME["border"], height=110
         )
-        card.grid(row=0, column=col, sticky="nsew", padx=padx, pady=4)
-        card.grid_propagate(False)  # Enforce height
+        card.pack(side="left", fill="both", expand=True, padx=padx)
+        card.pack_propagate(False)
 
-        # Using exact padding coordinates to match the visual layout of the target
         val_lbl = ctk.CTkLabel(card, text=str(value), font=("Arial", 22, "bold"), text_color=value_color)
         val_lbl.place(x=20, y=20)
 
         if sublabel:
-            sub_lbl = ctk.CTkLabel(card, text=sublabel, font=("Arial", 10), text_color=THEME["text_sub"])
+            sub_col = THEME["text_sub"] if bg_color == THEME["bg_card"] else "#E0E0E0"
+            sub_lbl = ctk.CTkLabel(card, text=sublabel, font=("Arial", 10), text_color=sub_col)
             sub_lbl.place(x=20, y=55)
 
-        lbl = ctk.CTkLabel(card, text=label, font=("Arial", 11, "bold"), text_color=THEME["text_main"])
+        lbl_col = THEME["text_main"] if bg_color == THEME["bg_card"] else "#FFFFFF"
+        lbl = ctk.CTkLabel(card, text=label, font=("Arial", 11, "bold"), text_color=lbl_col)
         lbl.place(x=20, y=75)
 
     # ─── PIE CHART ────────────────────────────────────
@@ -849,8 +785,6 @@ class AdminDashboard(ctk.CTkFrame):
                 text_color=THEME["danger"]
             ).pack(pady=20)
 
-    # ─── CALENDAR CARD ────────────────────────────────
-
     def _render_calendar_card(self):
         for w in self.calendar_card.winfo_children():
             w.destroy()
@@ -858,62 +792,29 @@ class AdminDashboard(ctk.CTkFrame):
         now = datetime.datetime.now()
         season, season_color = get_liturgical_season()
 
-        header = ctk.CTkFrame(
-            self.calendar_card, fg_color="transparent"
-        )
-        header.pack(fill="x", padx=16, pady=(14, 4))
+        header = ctk.CTkFrame(self.calendar_card, fg_color="transparent")
+        header.pack(fill="x", padx=20, pady=(20, 12))
 
-        ctk.CTkLabel(
-            header,
-            text="Calendar & Time Event",
-            font=("Arial", 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w")
+        ctk.CTkLabel(header, text="Calendar & Time Event", font=("Arial", 16, "bold"),
+                     text_color=THEME["text_main"]).pack(anchor="w")
+        ctk.CTkLabel(header, text=now.strftime("%B %d, %Y   %I:%M %p"), font=("Arial", 11),
+                     text_color=THEME["text_sub"]).pack(anchor="w", pady=(2, 0))
+        ctk.CTkLabel(header, text="● " + season.upper(), font=("Arial", 16, "bold"), text_color=season_color).pack(
+            anchor="w", pady=(2, 0))
 
-        ctk.CTkLabel(
-            header,
-            text=now.strftime("%B %d, %Y   %I:%M %p"),
-            font=("Arial", 10),
-            text_color=THEME["text_sub"]
-        ).pack(anchor="w")
+        body = ctk.CTkFrame(self.calendar_card, fg_color="transparent")
+        body.pack(fill="both", expand=True, padx=20, pady=(0, 20))
 
-        ctk.CTkLabel(
-            self.calendar_card,
-            text="● " + season,
-            font=("Arial", 11, "bold"),
-            text_color=season_color
-        ).pack(anchor="w", padx=16, pady=(0, 8))
-
-        body = tk.Frame(
-            self.calendar_card,
-            bg=THEME["bg_card"]
-        )
-        body.pack(
-            fill="both", expand=True,
-            padx=10, pady=(0, 12)
-        )
-        body.columnconfigure(0, weight=1)
-        body.columnconfigure(1, weight=1)
-
-        # Events panel
-        events_frame = ctk.CTkFrame(
-            body, fg_color="transparent"
-        )
-        events_frame.grid(
-            row=0, column=0,
-            sticky="nsew", padx=(0, 8)
-        )
+        # --- LEFT: Events List ---
+        events_frame = ctk.CTkFrame(body, fg_color="transparent")
+        events_frame.pack(side="left", fill="both", expand=True, padx=(0, 10))
 
         try:
-            conn   = self.db._get_connection()
+            conn = self.db._get_connection()
             cursor = conn.cursor()
-            today  = now.date().isoformat()
-            cursor.execute("""
-                SELECT name, start_date FROM events
-                WHERE start_date >= ?
-                ORDER BY start_date ASC
-                LIMIT 5
-            """, (today,))
+            today = now.date().isoformat()
+            cursor.execute("SELECT name, start_date FROM events WHERE start_date >= ? ORDER BY start_date ASC LIMIT 2",
+                           (today,))
             upcoming = cursor.fetchall()
             conn.close()
         except Exception:
@@ -921,135 +822,71 @@ class AdminDashboard(ctk.CTkFrame):
 
         if upcoming:
             for name, date in upcoming:
-                ev = ctk.CTkFrame(
-                    events_frame,
-                    fg_color="#F0F4FF",
-                    corner_radius=8
-                )
-                ev.pack(fill="x", pady=2)
-                ctk.CTkLabel(
-                    ev,
-                    text="● " + str(name),
-                    font=("Arial", 11, "bold"),
-                    text_color=THEME["primary"]
-                ).pack(anchor="w", padx=10, pady=(4, 0))
-                ctk.CTkLabel(
-                    ev,
-                    text=str(date),
-                    font=("Arial", 9),
-                    text_color=THEME["text_sub"]
-                ).pack(anchor="w", padx=10, pady=(0, 4))
+                ev = ctk.CTkFrame(events_frame, fg_color="#EAF4FF", corner_radius=10)
+                ev.pack(fill="x", pady=(0, 8), ipady=4)
+                ctk.CTkLabel(ev, text="● " + str(name), font=("Arial", 14, "bold"), text_color="#1976D2").pack(
+                    anchor="w", padx=12, pady=(6, 0))
+                ctk.CTkLabel(ev, text=str(date), font=("Arial", 14), text_color="#5A7ACC").pack(anchor="w", padx=12,
+                                                                                                pady=(0, 6))
         else:
-            ctk.CTkLabel(
-                events_frame,
-                text="No upcoming events",
-                font=("Arial", 11),
-                text_color=THEME["text_sub"]
-            ).pack(anchor="w", padx=4, pady=8)
+            ctk.CTkLabel(events_frame, text="No upcoming events", font=("Arial", 11),
+                         text_color=THEME["text_sub"]).pack(anchor="w")
 
-        # Mini calendar
-        cal_frame = ctk.CTkFrame(
-            body,
-            fg_color="#1a3a8a",
-            corner_radius=12
-        )
-        cal_frame.grid(
-            row=0, column=1,
-            sticky="nsew", padx=(8, 0)
-        )
+        # --- RIGHT: Target Image Dark Blue Calendar ---
+        # INCREASED SIZE: width=340, height=280 (up from 220x220)
+        cal_frame = ctk.CTkFrame(body, fg_color="#144E9E", corner_radius=12, width=340, height=280)
+        cal_frame.pack(side="right", fill="y", expand=False)
+        cal_frame.pack_propagate(False)  # Prevents the box from shrinking or growing
 
-        mh = ctk.CTkFrame(
-            cal_frame, fg_color="transparent"
-        )
-        mh.pack(fill="x", padx=8, pady=(10, 4))
+        # Top Header (2026 / MARCH)
+        mh = ctk.CTkFrame(cal_frame, fg_color="transparent")
+        mh.pack(fill="x", padx=16, pady=(16, 12))
 
-        ctk.CTkLabel(
-            mh, text=str(now.year),
-            font=("Arial", 14, "bold"),
-            text_color="#FFFFFF"
-        ).pack(side="left", padx=4)
+        yr_box = ctk.CTkFrame(mh, fg_color="#FFFFFF", corner_radius=4)
+        yr_box.pack(side="left")
 
-        ctk.CTkLabel(
-            mh,
-            text=now.strftime("%B").upper(),
-            font=("Arial", 12, "bold"),
-            text_color="#FFD700"
-        ).pack(side="right", padx=4)
+        # Increased font to 14
+        ctk.CTkLabel(yr_box, text=str(now.year), font=("Arial", 16, "bold"), text_color="#144E9E").pack(padx=10, pady=4)
 
-        days_row = ctk.CTkFrame(
-            cal_frame, fg_color="transparent"
-        )
-        days_row.pack(fill="x", padx=4)
+        # Increased font to 16
+        ctk.CTkLabel(mh, text=now.strftime("%B").upper(), font=("Arial", 18, "bold"), text_color="#FFFFFF").pack(
+            side="right")
 
-        for i, d in enumerate(
-            ["SUN", "MON", "TUE", "WED",
-             "THU", "FRI", "SAT"]
-        ):
-            days_row.grid_columnconfigure(i, weight=1)
-            ctk.CTkLabel(
-                days_row, text=d,
-                font=("Arial", 7, "bold"),
-                text_color="#AABBEE"
-            ).grid(row=0, column=i, padx=1, pady=2)
+        # Divider Line
+        ctk.CTkFrame(cal_frame, fg_color="#FFFFFF", height=2).pack(fill="x", padx=16, pady=(0, 10))
 
-        cal_grid = ctk.CTkFrame(
-            cal_frame, fg_color="transparent"
-        )
-        cal_grid.pack(
-            fill="both", expand=True,
-            padx=4, pady=(0, 8)
-        )
+        # Days Name Header
+        days_row = ctk.CTkFrame(cal_frame, fg_color="transparent")
+        days_row.pack(fill="x", padx=12)
+        for i, d in enumerate(["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]):
+            days_row.grid_columnconfigure(i, weight=1, uniform="day")
+            # Increased font to 10
+            ctk.CTkLabel(days_row, text=d, font=("Arial", 10, "bold"), text_color="#FFFFFF").grid(row=0, column=i)
 
-        month_cal = calendar.monthcalendar(
-            now.year, now.month
-        )
+        # Light Blue Day Grid
+        cal_grid = ctk.CTkFrame(cal_frame, fg_color="transparent")
+        cal_grid.pack(fill="both", expand=True, padx=12, pady=(0, 16))
+
+        month_cal = calendar.monthcalendar(now.year, now.month)
         today_day = now.day
 
         for i in range(7):
-            cal_grid.grid_columnconfigure(i, weight=1)
+            cal_grid.grid_columnconfigure(i, weight=1, uniform="col")
 
         for week_idx, week in enumerate(month_cal):
+            cal_grid.grid_rowconfigure(week_idx, weight=1, uniform="row")
             for day_idx, day in enumerate(week):
-                if day == 0:
-                    ctk.CTkLabel(
-                        cal_grid, text="",
-                        font=("Arial", 9),
-                        text_color="#FFFFFF"
-                    ).grid(
-                        row=week_idx, column=day_idx,
-                        padx=1, pady=1
-                    )
-                elif day == today_day:
-                    cell = ctk.CTkFrame(
-                        cal_grid,
-                        fg_color="#FFFFFF",
-                        corner_radius=4,
-                        width=26, height=26
-                    )
-                    cell.grid(
-                        row=week_idx, column=day_idx,
-                        padx=1, pady=1
-                    )
-                    cell.grid_propagate(False)
-                    ctk.CTkLabel(
-                        cell,
-                        text=str(day),
-                        font=("Arial", 9, "bold"),
-                        text_color="#1a3a8a"
-                    ).place(
-                        relx=0.5, rely=0.5,
-                        anchor="center"
-                    )
-                else:
-                    ctk.CTkLabel(
-                        cal_grid,
-                        text=str(day),
-                        font=("Arial", 9),
-                        text_color="#FFFFFF"
-                    ).grid(
-                        row=week_idx, column=day_idx,
-                        padx=1, pady=1
-                    )
+                if day == 0: continue
+
+                # Match image colors: Light blue normally, white for today
+                bg_col = "#FFFFFF" if day == today_day else "#65A5F2"
+                txt_col = "#144E9E" if day == today_day else "#0A2458"
+
+                cell = ctk.CTkFrame(cal_grid, fg_color=bg_col, corner_radius=4)
+                cell.grid(row=week_idx, column=day_idx, padx=3, pady=3, sticky="nsew")
+
+                # Increased font to 14
+                ctk.CTkLabel(cell, text=str(day), font=("Arial", 14, "bold"), text_color=txt_col).pack(expand=True)
 
     # ─── LINE CHART ───────────────────────────────────
 
