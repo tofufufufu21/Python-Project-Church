@@ -385,6 +385,7 @@ class AdminDashboard(ctk.CTkFrame):
         )
         right_col.pack(side="right", padx=20, pady=12)
 
+        # 1. Avatar (Packed Right - Furthest Right)
         avatar_path = os.path.join("assets", "avatar.png")
         if os.path.exists(avatar_path):
             try:
@@ -406,12 +407,42 @@ class AdminDashboard(ctk.CTkFrame):
         else:
             self._avatar_placeholder(right_col)
 
+        # 2. Notification Bell using a safe tk.Canvas (Middle)
+        bell_canvas = tk.Canvas(
+            right_col, width=40, height=40,
+            bg="#FFFFFF", highlightthickness=0
+        )
+        bell_canvas.pack(side="right", padx=(10, 0))
+
+        # Circle background for bell
+        bell_canvas.create_oval(
+            2, 2, 38, 38,
+            fill="#F3F6FB",
+            outline=THEME.get("border", "#E0E0E0"), width=1
+        )
+        # Bell emoji
+        bell_canvas.create_text(
+            20, 20, text="🔔",
+            font=("Arial", 14), fill="#1a2a4a"
+        )
+        # Red Notification Badge
+        bell_canvas.create_oval(
+            24, 2, 38, 16,
+            fill="#FF4C4C", outline="#FF4C4C"
+        )
+        # Number inside the badge
+        bell_canvas.create_text(
+            31, 9, text="3",
+            font=("Arial", 8, "bold"), fill="#FFFFFF"
+        )
+
+        # 3. Search Bar (Packed Right - Leftmost)
         search_frame = ctk.CTkFrame(
             right_col, fg_color="#F3F6FB",
             corner_radius=20, border_width=1,
             border_color=THEME["border"]
         )
-        search_frame.pack(side="right")
+        search_frame.pack(side="right", padx=(0, 10))
 
         ctk.CTkLabel(
             search_frame, text="🔍",
