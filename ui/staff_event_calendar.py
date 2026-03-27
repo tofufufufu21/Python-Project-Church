@@ -10,151 +10,219 @@ class StaffEventCalendar(ctk.CTkFrame):
 
     def __init__(self, master, db_manager):
         super().__init__(master, fg_color=THEME["bg_main"])
-        self.db            = db_manager
+        self.db             = db_manager
         self._current_year  = datetime.date.today().year
         self._current_month = datetime.date.today().month
+        self._selected_date = None
         self.pack(fill="both", expand=True)
         self._build()
 
     def _build(self):
-        # Main scrollable container
-        self.content = ctk.CTkScrollableFrame(
+        # ── TOPBAR ────────────────────────────────────
+        topbar = ctk.CTkFrame(
+            self, fg_color="#FFFFFF",
+            corner_radius=0, border_width=1,
+            border_color=THEME["border"]
+        )
+        topbar.pack(fill="x")
+
+        left = ctk.CTkFrame(topbar, fg_color="transparent")
+        left.pack(side="left", padx=24, pady=12)
+
+        ctk.CTkLabel(
+            left, text="Event Calendar",
+            font=("Arial", 18, "bold"),
+            text_color="#1a2a4a"
+        ).pack(anchor="w")
+
+        ctk.CTkLabel(
+            left,
+            text="Stay updated with all scheduled "
+                 "church events and services.",
+            font=("Arial", 10),
+            text_color="#888888"
+        ).pack(anchor="w")
+
+        right_top = ctk.CTkFrame(
+            topbar, fg_color="transparent"
+        )
+        right_top.pack(side="right", padx=20, pady=12)
+
+        # Avatar
+        avatar_canvas = tk.Canvas(
+            right_top, width=40, height=40,
+            bg="#FFFFFF", highlightthickness=0
+        )
+        avatar_canvas.pack(side="right", padx=(8, 0))
+        avatar_canvas.create_oval(
+            2, 2, 38, 38,
+            fill="#D0DCF0", outline="#AABBDD", width=1
+        )
+        avatar_canvas.create_text(
+            20, 20, text="👤",
+            font=("Arial", 16), fill="#1a2a4a"
+        )
+
+        # Bell
+        bell = ctk.CTkFrame(
+            right_top, fg_color="#F3F6FB",
+            corner_radius=20, width=40, height=40
+        )
+        bell.pack(side="right", padx=(0, 8))
+        bell.pack_propagate(False)
+        ctk.CTkLabel(
+            bell, text="🔔",
+            font=("Arial", 16),
+            fg_color="transparent"
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # Search
+        search_frame = ctk.CTkFrame(
+            right_top, fg_color="#F3F6FB",
+            corner_radius=20, border_width=1,
+            border_color=THEME["border"]
+        )
+        search_frame.pack(side="right", padx=(0, 8))
+        ctk.CTkLabel(
+            search_frame, text="🔍",
+            font=("Arial", 13),
+            fg_color="transparent"
+        ).pack(side="left", padx=(12, 4), pady=6)
+        ctk.CTkEntry(
+            search_frame,
+            placeholder_text="Search donor or Transaction ID",
+            width=200, height=32,
+            border_width=0,
+            fg_color="#F3F6FB",
+            text_color=THEME["text_main"],
+            placeholder_text_color="#AAAAAA",
+            font=("Arial", 11)
+        ).pack(side="left", padx=(0, 12), pady=6)
+
+        # ── BODY ──────────────────────────────────────
+        body = ctk.CTkFrame(
             self, fg_color=THEME["bg_main"]
         )
-        self.content.pack(
-            fill="both", expand=True, padx=30, pady=24
-        )
-
-        # Page title
-        ctk.CTkLabel(
-            self.content, text="Event Calendar",
-            font=("Arial", 20, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", pady=(0, 4))
-
-        ctk.CTkLabel(
-            self.content,
-            text="View upcoming and past parish events.",
-            font=("Arial", 12),
-            text_color=THEME["text_sub"]
-        ).pack(anchor="w", pady=(0, 16))
-
-        # Two column layout
-        body = ctk.CTkFrame(
-            self.content, fg_color="transparent"
-        )
-        body.pack(fill="both", expand=True)
-        body.grid_columnconfigure(0, weight=1)
+        body.pack(fill="both", expand=True, padx=20, pady=16)
+        body.grid_columnconfigure(0, weight=3)
         body.grid_columnconfigure(1, weight=2)
+        body.grid_rowconfigure(0, weight=1)
 
-        # Left — mini calendar
-        left = ctk.CTkFrame(
-            body, fg_color="transparent"
+        # Left — big calendar
+        self.cal_outer = ctk.CTkFrame(
+            body, fg_color="#1a3a8a",
+            corner_radius=16
         )
-        left.grid(
+        self.cal_outer.grid(
             row=0, column=0,
             sticky="nsew", padx=(0, 12)
         )
+        self._render_big_calendar()
 
-        # Calendar card
-        self.cal_card = ctk.CTkFrame(
-            left, fg_color="#1a3a8a",
-            corner_radius=14
+        # Right — upcoming events panel
+        self.events_panel = ctk.CTkFrame(
+            body, fg_color=THEME["bg_card"],
+            corner_radius=16, border_width=1,
+            border_color=THEME["border"]
         )
-        self.cal_card.pack(fill="x")
-        self._render_calendar()
-
-        # Right — events
-        right = ctk.CTkFrame(
-            body, fg_color="transparent"
-        )
-        right.grid(
+        self.events_panel.grid(
             row=0, column=1,
             sticky="nsew", padx=(12, 0)
         )
+        self._render_events_panel()
 
-        today = datetime.date.today().isoformat()
+    # ─── BIG CALENDAR ─────────────────────────────────
 
-        self._build_today_alert(right, today)
-        self._build_upcoming(right, today)
-        self._build_past(right, today)
-
-    # ─── CALENDAR ─────────────────────────────────────
-
-    def _render_calendar(self):
-        for w in self.cal_card.winfo_children():
+    def _render_big_calendar(self):
+        for w in self.cal_outer.winfo_children():
             w.destroy()
 
-        now   = datetime.date.today()
         year  = self._current_year
         month = self._current_month
+        now   = datetime.date.today()
 
-        # ── Header ────────────────────────────────────
-        header = ctk.CTkFrame(
-            self.cal_card, fg_color="transparent"
+        # ── Month/Year header ─────────────────────────
+        hdr = ctk.CTkFrame(
+            self.cal_outer, fg_color="transparent"
         )
-        header.pack(fill="x", padx=14, pady=(14, 8))
+        hdr.pack(fill="x", padx=20, pady=(20, 8))
+
+        # Year box
+        yr_box = ctk.CTkFrame(
+            hdr, fg_color="#FFFFFF",
+            corner_radius=8, width=80, height=44
+        )
+        yr_box.pack(side="left")
+        yr_box.pack_propagate(False)
+        ctk.CTkLabel(
+            yr_box, text=str(year),
+            font=("Arial", 18, "bold"),
+            text_color="#1a3a8a"
+        ).place(relx=0.5, rely=0.5, anchor="center")
+
+        # Month label
+        ctk.CTkLabel(
+            hdr,
+            text=datetime.date(year, month, 1)
+            .strftime("%B").upper(),
+            font=("Arial", 28, "bold"),
+            text_color="#FFFFFF"
+        ).pack(side="right", padx=(0, 4))
+
+        # ── Nav arrows ────────────────────────────────
+        nav = ctk.CTkFrame(
+            self.cal_outer, fg_color="transparent"
+        )
+        nav.pack(fill="x", padx=20, pady=(0, 4))
 
         ctk.CTkButton(
-            header, text="‹",
-            width=32, height=32,
+            nav, text="‹",
+            width=36, height=36,
             corner_radius=8,
             fg_color="#2a52cc",
             hover_color="#1a3aaa",
-            font=("Arial", 16, "bold"),
+            font=("Arial", 18, "bold"),
             text_color="#FFFFFF",
             command=self._prev_month
         ).pack(side="left")
 
-        ctk.CTkLabel(
-            header,
-            text=datetime.date(year, month, 1).strftime(
-                "%B %Y"
-            ),
-            font=("Arial", 14, "bold"),
-            text_color="#FFFFFF"
-        ).pack(side="left", expand=True)
-
         ctk.CTkButton(
-            header, text="›",
-            width=32, height=32,
+            nav, text="›",
+            width=36, height=36,
             corner_radius=8,
             fg_color="#2a52cc",
             hover_color="#1a3aaa",
-            font=("Arial", 16, "bold"),
+            font=("Arial", 18, "bold"),
             text_color="#FFFFFF",
             command=self._next_month
         ).pack(side="right")
 
-        # ── Season badge ──────────────────────────────
-        if year == now.year and month == now.month:
-            season, season_color = get_liturgical_season()
-            ctk.CTkLabel(
-                self.cal_card,
-                text="● " + season,
-                font=("Arial", 10, "bold"),
-                text_color=season_color
-            ).pack(anchor="w", padx=14, pady=(0, 8))
+        # ── Divider ───────────────────────────────────
+        ctk.CTkFrame(
+            self.cal_outer,
+            fg_color="#FFFFFF", height=1
+        ).pack(fill="x", padx=20, pady=(0, 8))
 
         # ── Day name headers ──────────────────────────
-        day_names = ["Su", "Mo", "Tu", "We",
-                     "Th", "Fr", "Sa"]
-        days_row = ctk.CTkFrame(
-            self.cal_card, fg_color="transparent"
+        days_hdr = ctk.CTkFrame(
+            self.cal_outer, fg_color="transparent"
         )
-        days_row.pack(fill="x", padx=8)
-        for i, d in enumerate(day_names):
-            days_row.grid_columnconfigure(i, weight=1)
+        days_hdr.pack(fill="x", padx=16)
+        for i, d in enumerate(
+            ["SUN", "MON", "TUE", "WED",
+             "THU", "FRI", "SAT"]
+        ):
+            days_hdr.grid_columnconfigure(i, weight=1)
             ctk.CTkLabel(
-                days_row, text=d,
-                font=("Arial", 9, "bold"),
-                text_color="#AABBEE"
+                days_hdr, text=d,
+                font=("Arial", 10, "bold"),
+                text_color="#AACCFF"
             ).grid(
                 row=0, column=i,
-                padx=2, pady=4, sticky="ew"
+                sticky="ew", pady=6
             )
 
-        # ── Get events for this month ──────────────────
+        # ── Get events ────────────────────────────────
         m_start = datetime.date(year, month, 1).isoformat()
         m_end   = datetime.date(
             year, month,
@@ -169,8 +237,8 @@ class StaffEventCalendar(ctk.CTkFrame):
                 WHERE start_date BETWEEN ? AND ?
             """, (m_start, m_end))
             event_days = set(
-                int(row[0].split("-")[2])
-                for row in cursor.fetchall()
+                int(r[0].split("-")[2])
+                for r in cursor.fetchall()
             )
             conn.close()
         except Exception:
@@ -178,111 +246,123 @@ class StaffEventCalendar(ctk.CTkFrame):
 
         # ── Calendar grid ─────────────────────────────
         cal_grid = ctk.CTkFrame(
-            self.cal_card, fg_color="transparent"
+            self.cal_outer, fg_color="transparent"
         )
         cal_grid.pack(
-            fill="x", padx=8, pady=(0, 8)
+            fill="both", expand=True,
+            padx=12, pady=(0, 16)
         )
         for i in range(7):
             cal_grid.grid_columnconfigure(i, weight=1)
 
         month_cal = cal_module.monthcalendar(year, month)
-        today_day = now.day if (
-            year == now.year and month == now.month
-        ) else -1
+        today_day = (
+            now.day
+            if year == now.year and month == now.month
+            else -1
+        )
 
         for week_idx, week in enumerate(month_cal):
+            cal_grid.grid_rowconfigure(week_idx, weight=1)
             for day_idx, day in enumerate(week):
                 if day == 0:
-                    ctk.CTkLabel(
-                        cal_grid, text="",
-                        width=34, height=34
+                    # Empty cell
+                    ctk.CTkFrame(
+                        cal_grid,
+                        fg_color="#3a5aaa",
+                        corner_radius=6,
+                        width=58, height=52
                     ).grid(
                         row=week_idx, column=day_idx,
-                        padx=2, pady=2
+                        padx=3, pady=3, sticky="nsew"
                     )
-                elif day == today_day:
-                    cell = ctk.CTkFrame(
-                        cal_grid,
-                        fg_color="#FFFFFF",
-                        corner_radius=8,
-                        width=34, height=34
+                    continue
+
+                is_today    = day == today_day
+                is_selected = (
+                    self._selected_date is not None and
+                    self._selected_date == datetime.date(
+                        year, month, day
                     )
-                    cell.grid(
-                        row=week_idx, column=day_idx,
-                        padx=2, pady=2
-                    )
-                    cell.grid_propagate(False)
-                    ctk.CTkLabel(
-                        cell,
-                        text=str(day),
-                        font=("Arial", 10, "bold"),
-                        text_color="#1a3a8a"
-                    ).place(
-                        relx=0.5, rely=0.5,
-                        anchor="center"
-                    )
-                elif day in event_days:
-                    cell = ctk.CTkFrame(
-                        cal_grid,
-                        fg_color="#FFD700",
-                        corner_radius=8,
-                        width=34, height=34
-                    )
-                    cell.grid(
-                        row=week_idx, column=day_idx,
-                        padx=2, pady=2
-                    )
-                    cell.grid_propagate(False)
-                    ctk.CTkLabel(
-                        cell,
-                        text=str(day),
-                        font=("Arial", 10, "bold"),
-                        text_color="#1a3a8a"
-                    ).place(
-                        relx=0.5, rely=0.5,
-                        anchor="center"
-                    )
+                )
+                has_event   = day in event_days
+
+                if is_today or is_selected:
+                    cell_bg  = "#FFFFFF"
+                    txt_col  = "#1a3a8a"
+                elif has_event:
+                    cell_bg  = "#FFD700"
+                    txt_col  = "#1a3a8a"
                 else:
-                    ctk.CTkLabel(
-                        cal_grid,
-                        text=str(day),
-                        font=("Arial", 10),
-                        text_color="#FFFFFF",
-                        width=34, height=34
-                    ).grid(
-                        row=week_idx, column=day_idx,
-                        padx=2, pady=2
+                    cell_bg  = "#5a8adc"
+                    txt_col  = "#1a3a8a"
+
+                cell = ctk.CTkFrame(
+                    cal_grid,
+                    fg_color=cell_bg,
+                    corner_radius=6,
+                    width=58, height=52
+                )
+                cell.grid(
+                    row=week_idx, column=day_idx,
+                    padx=3, pady=3, sticky="nsew"
+                )
+                cell.grid_propagate(False)
+
+                ctk.CTkLabel(
+                    cell,
+                    text=str(day),
+                    font=("Arial", 14, "bold"),
+                    text_color=txt_col
+                ).place(
+                    relx=0.5, rely=0.5,
+                    anchor="center"
+                )
+
+                # Click to select
+                d = datetime.date(year, month, day)
+                cell.bind(
+                    "<Button-1>",
+                    lambda e, dt=d: self._on_day_click(dt)
+                )
+                for child in cell.winfo_children():
+                    child.bind(
+                        "<Button-1>",
+                        lambda e, dt=d: self._on_day_click(dt)
                     )
 
-        # ── Legend ────────────────────────────────────
-        legend = ctk.CTkFrame(
-            self.cal_card, fg_color="transparent"
-        )
-        legend.pack(
-            anchor="w", padx=14, pady=(4, 14)
-        )
+                # Hover
+                def on_enter(e, c=cell, bg=cell_bg,
+                              sel=is_today or is_selected):
+                    if not sel:
+                        c.configure(fg_color="#7ab0f5")
+                def on_leave(e, c=cell, bg=cell_bg):
+                    c.configure(fg_color=bg)
 
-        # Today
+                if not (is_today or is_selected):
+                    cell.bind("<Enter>", on_enter)
+                    cell.bind("<Leave>", on_leave)
+
+        # ── Small event dot legend ─────────────────────
+        leg = ctk.CTkFrame(
+            self.cal_outer, fg_color="transparent"
+        )
+        leg.pack(anchor="w", padx=16, pady=(0, 12))
+
         tk.Frame(
-            legend, bg="#FFFFFF",
-            width=14, height=14
+            leg, bg="#FFD700", width=12, height=12
         ).pack(side="left")
         ctk.CTkLabel(
-            legend, text=" Today",
-            font=("Arial", 9),
-            text_color="#AABBEE"
-        ).pack(side="left", padx=(0, 12))
+            leg, text="  Has Event",
+            font=("Arial", 9), text_color="#AACCFF"
+        ).pack(side="left", padx=(0, 16))
 
-        # Event
         tk.Frame(
-            legend, bg="#FFD700",
-            width=14, height=14
+            leg, bg="#FFFFFF", width=12, height=12
         ).pack(side="left")
         ctk.CTkLabel(
-            legend, text=" Has Event",
-            font=("Arial", 9),
-            text_color="#AABBEE"
+            leg, text="  Today",
+            font=("Arial", 9), text_color="#AACCFF"
         ).pack(side="left")
 
     def _prev_month(self):
@@ -291,7 +371,9 @@ class StaffEventCalendar(ctk.CTkFrame):
             self._current_year -= 1
         else:
             self._current_month -= 1
-        self._render_calendar()
+        self._selected_date = None
+        self._render_big_calendar()
+        self._render_events_panel()
 
     def _next_month(self):
         if self._current_month == 12:
@@ -299,210 +381,194 @@ class StaffEventCalendar(ctk.CTkFrame):
             self._current_year += 1
         else:
             self._current_month += 1
-        self._render_calendar()
+        self._selected_date = None
+        self._render_big_calendar()
+        self._render_events_panel()
 
-    # ─── TODAY ALERT ──────────────────────────────────
+    def _on_day_click(self, date):
+        if self._selected_date == date:
+            self._selected_date = None
+        else:
+            self._selected_date = date
+        self._render_big_calendar()
+        self._render_events_panel()
 
-    def _build_today_alert(self, parent, today):
-        conn   = self.db._get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "SELECT name FROM events "
-            "WHERE start_date = ?", (today,)
-        )
-        today_events = cursor.fetchall()
-        conn.close()
+    # ─── EVENTS PANEL ─────────────────────────────────
 
-        if not today_events:
-            return
-
-        alert = ctk.CTkFrame(
-            parent, fg_color="#EBF7EE",
-            corner_radius=12, border_width=1,
-            border_color=THEME["success"]
-        )
-        alert.pack(fill="x", pady=(0, 12))
+    def _render_events_panel(self):
+        for w in self.events_panel.winfo_children():
+            w.destroy()
 
         ctk.CTkLabel(
-            alert,
-            text="📅  Today's Events",
-            font=("Arial", 13, "bold"),
-            text_color=THEME["success"]
-        ).pack(anchor="w", padx=16, pady=(12, 4))
+            self.events_panel,
+            text="Upcoming Events",
+            font=("Arial", 14, "bold"),
+            text_color=THEME["text_main"]
+        ).pack(anchor="w", padx=20, pady=(20, 4))
 
-        for (name,) in today_events:
+        ctk.CTkFrame(
+            self.events_panel,
+            fg_color=THEME["border"], height=1
+        ).pack(fill="x", padx=20, pady=(0, 16))
+
+        # Get events
+        if self._selected_date:
+            date_filter = self._selected_date.isoformat()
+            query = """
+                SELECT name, start_date, location
+                FROM events
+                WHERE start_date = ?
+                ORDER BY start_date ASC
+            """
+            params = (date_filter,)
+        else:
+            today = datetime.date.today().isoformat()
+            query = """
+                SELECT name, start_date, location
+                FROM events
+                WHERE start_date >= ?
+                ORDER BY start_date ASC
+                LIMIT 10
+            """
+            params = (today,)
+
+        try:
+            conn   = self.db._get_connection()
+            cursor = conn.cursor()
+            try:
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+            except Exception:
+                cursor.execute(
+                    "SELECT name, start_date FROM events "
+                    "WHERE start_date >= ? ORDER BY start_date ASC LIMIT 10",
+                    (datetime.date.today().isoformat(),)
+                )
+                rows = [
+                    (r[0], r[1], "") for r in cursor.fetchall()
+                ]
+            conn.close()
+        except Exception:
+            rows = []
+
+        if not rows:
+            # Show empty placeholder exactly like Image 2
+            self._render_empty_panel()
+            return
+
+        scroll = ctk.CTkScrollableFrame(
+            self.events_panel,
+            fg_color="transparent"
+        )
+        scroll.pack(
+            fill="both", expand=True, padx=12, pady=(0, 12)
+        )
+
+        for name, start_date, location in rows:
+            card = ctk.CTkFrame(
+                scroll, fg_color="#F8F9FA",
+                corner_radius=10, border_width=1,
+                border_color=THEME["border"]
+            )
+            card.pack(fill="x", pady=6, padx=4)
+
+            # Color stripe
+            stripe = tk.Canvas(
+                card, width=5,
+                highlightthickness=0, bg="#F8F9FA"
+            )
+            stripe.pack(side="left", fill="y",
+                        padx=(10, 0), pady=10)
+            stripe.bind(
+                "<Configure>",
+                lambda e, s=stripe: (
+                    s.delete("all"),
+                    s.create_rectangle(
+                        0, 0, 5, e.height,
+                        fill="#1a3a8a", outline=""
+                    )
+                )
+            )
+
+            info = ctk.CTkFrame(
+                card, fg_color="transparent"
+            )
+            info.pack(
+                side="left", fill="both",
+                expand=True, padx=12, pady=10
+            )
+
+            # Event Name
             ctk.CTkLabel(
-                alert,
-                text="● " + str(name),
+                info, text="Event Name:",
+                font=("Arial", 10, "bold"),
+                text_color=THEME["text_sub"]
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                info, text=str(name),
+                font=("Arial", 12, "bold"),
+                text_color=THEME["text_main"]
+            ).pack(anchor="w")
+
+            ctk.CTkFrame(
+                info, fg_color="#EEEEEE", height=1
+            ).pack(fill="x", pady=4)
+
+            # Date & Time
+            ctk.CTkLabel(
+                info, text="Date & Time:",
+                font=("Arial", 10, "bold"),
+                text_color=THEME["text_sub"]
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                info, text=str(start_date),
                 font=("Arial", 12),
                 text_color=THEME["text_main"]
-            ).pack(anchor="w", padx=24, pady=2)
+            ).pack(anchor="w")
 
-        ctk.CTkLabel(alert, text="").pack(pady=4)
-
-    # ─── UPCOMING ─────────────────────────────────────
-
-    def _build_upcoming(self, parent, today):
-        card = ctk.CTkFrame(
-            parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1,
-            border_color=THEME["border"]
-        )
-        card.pack(fill="x", pady=(0, 12))
-
-        ctk.CTkLabel(
-            card, text="Upcoming Events",
-            font=("Arial", 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=16, pady=(14, 8))
-
-        conn   = self.db._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT name, start_date, end_date, recurring
-            FROM events
-            WHERE start_date >= ?
-            ORDER BY start_date ASC
-            LIMIT 20
-        """, (today,))
-        rows = cursor.fetchall()
-        conn.close()
-
-        scroll = ctk.CTkScrollableFrame(
-            card, fg_color="transparent", height=160
-        )
-        scroll.pack(
-            fill="x", padx=8, pady=(0, 8)
-        )
-
-        if not rows:
             ctk.CTkFrame(
-                scroll, fg_color="#F8F9FA",
-                corner_radius=8
-            ).pack(fill="x", pady=4, padx=4)
+                info, fg_color="#EEEEEE", height=1
+            ).pack(fill="x", pady=4)
+
+            # Location
             ctk.CTkLabel(
-                scroll,
-                text="📭  No upcoming events yet.\n"
-                     "Admin can add events in "
-                     "Event Management.",
-                font=("Arial", 12),
-                text_color=THEME["text_sub"],
-                justify="center"
-            ).pack(pady=16)
-            return
-
-        self._render_event_rows(scroll, rows, muted=False)
-
-    # ─── PAST ─────────────────────────────────────────
-
-    def _build_past(self, parent, today):
-        card = ctk.CTkFrame(
-            parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1,
-            border_color=THEME["border"]
-        )
-        card.pack(fill="x")
-
-        ctk.CTkLabel(
-            card, text="Past Events",
-            font=("Arial", 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=16, pady=(14, 8))
-
-        conn   = self.db._get_connection()
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT name, start_date, end_date, recurring
-            FROM events
-            WHERE start_date < ?
-            ORDER BY start_date DESC
-            LIMIT 20
-        """, (today,))
-        rows = cursor.fetchall()
-        conn.close()
-
-        scroll = ctk.CTkScrollableFrame(
-            card, fg_color="transparent", height=160
-        )
-        scroll.pack(
-            fill="x", padx=8, pady=(0, 8)
-        )
-
-        if not rows:
-            ctk.CTkLabel(
-                scroll,
-                text="📭  No past events recorded.",
-                font=("Arial", 12),
-                text_color=THEME["text_sub"]
-            ).pack(pady=16)
-            return
-
-        self._render_event_rows(scroll, rows, muted=True)
-
-    # ─── EVENT TABLE ──────────────────────────────────
-
-    def _render_event_rows(self, parent, rows,
-                            muted=False):
-        headers = [
-            "Event Name", "Start Date",
-            "End Date", "Recurring"
-        ]
-        weights = [3, 1, 1, 1]
-
-        header_row = ctk.CTkFrame(
-            parent, fg_color="#F8F9FA"
-        )
-        header_row.pack(fill="x")
-        for i, (h, w) in enumerate(zip(headers, weights)):
-            header_row.grid_columnconfigure(i, weight=w)
-            ctk.CTkLabel(
-                header_row, text=h,
+                info, text="Location:",
                 font=("Arial", 10, "bold"),
+                text_color=THEME["text_sub"]
+            ).pack(anchor="w")
+            ctk.CTkLabel(
+                info,
+                text=str(location) if location else "—",
+                font=("Arial", 12),
+                text_color=THEME["text_main"]
+            ).pack(anchor="w")
+
+    def _render_empty_panel(self):
+        """Empty state matching Image 2 exactly."""
+        fields = [
+            ("Event Name:",  "─" * 26),
+            ("Date & Time:", "─" * 26),
+            ("Location:",    "─" * 26),
+        ]
+
+        container = ctk.CTkFrame(
+            self.events_panel,
+            fg_color="transparent"
+        )
+        container.pack(
+            fill="x", padx=20, pady=(0, 20)
+        )
+
+        for label, dash in fields:
+            ctk.CTkLabel(
+                container, text=label,
+                font=("Arial", 12, "bold"),
+                text_color=THEME["text_main"],
+                anchor="w"
+            ).pack(anchor="w", pady=(8, 2))
+            ctk.CTkLabel(
+                container, text=dash,
+                font=("Arial", 10),
                 text_color=THEME["text_sub"],
                 anchor="w"
-            ).grid(
-                row=0, column=i,
-                sticky="ew", padx=10, pady=6
-            )
-
-        text_color = (
-            THEME["text_sub"] if muted
-            else THEME["text_main"]
-        )
-
-        for name, start, end, rec in rows:
-            row_frame = ctk.CTkFrame(
-                parent,
-                fg_color="transparent"
-            )
-            row_frame.pack(fill="x", pady=1)
-
-            # Event dot indicator
-            dot_color = (
-                THEME["success"] if not muted
-                else THEME["text_sub"]
-            )
-
-            for i, (val, w) in enumerate(zip(
-                [
-                    str(name),
-                    str(start),
-                    str(end or "-"),
-                    "Yes" if rec else "No"
-                ],
-                weights
-            )):
-                row_frame.grid_columnconfigure(i, weight=w)
-                ctk.CTkLabel(
-                    row_frame,
-                    text=("● " + val if i == 0 else val),
-                    font=("Arial", 11),
-                    text_color=(
-                        dot_color if i == 0
-                        else text_color
-                    ),
-                    anchor="w"
-                ).grid(
-                    row=0, column=i,
-                    sticky="ew", padx=10, pady=6
-                )
+            ).pack(anchor="w")
