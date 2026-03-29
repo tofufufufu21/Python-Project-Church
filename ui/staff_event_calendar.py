@@ -18,92 +18,12 @@ class StaffEventCalendar(ctk.CTkFrame):
         self._build()
 
     def _build(self):
-        # ── TOPBAR ────────────────────────────────────
-        topbar = ctk.CTkFrame(
-            self, fg_color="#FFFFFF",
-            corner_radius=0, border_width=1,
-            border_color=THEME["border"]
-        )
-        topbar.pack(fill="x")
-
-        left = ctk.CTkFrame(topbar, fg_color="transparent")
-        left.pack(side="left", padx=24, pady=12)
-
-        ctk.CTkLabel(
-            left, text="Event Calendar",
-            font=("Arial", 18, "bold"),
-            text_color="#1a2a4a"
-        ).pack(anchor="w")
-
-        ctk.CTkLabel(
-            left,
-            text="Stay updated with all scheduled "
-                 "church events and services.",
-            font=("Arial", 10),
-            text_color="#888888"
-        ).pack(anchor="w")
-
-        right_top = ctk.CTkFrame(
-            topbar, fg_color="transparent"
-        )
-        right_top.pack(side="right", padx=20, pady=12)
-
-        # Avatar
-        avatar_canvas = tk.Canvas(
-            right_top, width=40, height=40,
-            bg="#FFFFFF", highlightthickness=0
-        )
-        avatar_canvas.pack(side="right", padx=(8, 0))
-        avatar_canvas.create_oval(
-            2, 2, 38, 38,
-            fill="#D0DCF0", outline="#AABBDD", width=1
-        )
-        avatar_canvas.create_text(
-            20, 20, text="👤",
-            font=("Arial", 16), fill="#1a2a4a"
-        )
-
-        # Bell
-        bell = ctk.CTkFrame(
-            right_top, fg_color="#F3F6FB",
-            corner_radius=20, width=40, height=40
-        )
-        bell.pack(side="right", padx=(0, 8))
-        bell.pack_propagate(False)
-        ctk.CTkLabel(
-            bell, text="🔔",
-            font=("Arial", 16),
-            fg_color="transparent"
-        ).place(relx=0.5, rely=0.5, anchor="center")
-
-        # Search
-        search_frame = ctk.CTkFrame(
-            right_top, fg_color="#F3F6FB",
-            corner_radius=20, border_width=1,
-            border_color=THEME["border"]
-        )
-        search_frame.pack(side="right", padx=(0, 8))
-        ctk.CTkLabel(
-            search_frame, text="🔍",
-            font=("Arial", 13),
-            fg_color="transparent"
-        ).pack(side="left", padx=(12, 4), pady=6)
-        ctk.CTkEntry(
-            search_frame,
-            placeholder_text="Search donor or Transaction ID",
-            width=200, height=32,
-            border_width=0,
-            fg_color="#F3F6FB",
-            text_color=THEME["text_main"],
-            placeholder_text_color="#AAAAAA",
-            font=("Arial", 11)
-        ).pack(side="left", padx=(0, 12), pady=6)
-
-        # ── BODY ──────────────────────────────────────
         body = ctk.CTkFrame(
             self, fg_color=THEME["bg_main"]
         )
-        body.pack(fill="both", expand=True, padx=20, pady=16)
+        body.pack(
+            fill="both", expand=True, padx=20, pady=16
+        )
         body.grid_columnconfigure(0, weight=3)
         body.grid_columnconfigure(1, weight=2)
         body.grid_rowconfigure(0, weight=1)
@@ -266,7 +186,6 @@ class StaffEventCalendar(ctk.CTkFrame):
             cal_grid.grid_rowconfigure(week_idx, weight=1)
             for day_idx, day in enumerate(week):
                 if day == 0:
-                    # Empty cell
                     ctk.CTkFrame(
                         cal_grid,
                         fg_color="#3a5aaa",
@@ -285,17 +204,17 @@ class StaffEventCalendar(ctk.CTkFrame):
                         year, month, day
                     )
                 )
-                has_event   = day in event_days
+                has_event = day in event_days
 
                 if is_today or is_selected:
-                    cell_bg  = "#FFFFFF"
-                    txt_col  = "#1a3a8a"
+                    cell_bg = "#FFFFFF"
+                    txt_col = "#1a3a8a"
                 elif has_event:
-                    cell_bg  = "#FFD700"
-                    txt_col  = "#1a3a8a"
+                    cell_bg = "#FFD700"
+                    txt_col = "#1a3a8a"
                 else:
-                    cell_bg  = "#5a8adc"
-                    txt_col  = "#1a3a8a"
+                    cell_bg = "#5a8adc"
+                    txt_col = "#1a3a8a"
 
                 cell = ctk.CTkFrame(
                     cal_grid,
@@ -319,7 +238,6 @@ class StaffEventCalendar(ctk.CTkFrame):
                     anchor="center"
                 )
 
-                # Click to select
                 d = datetime.date(year, month, day)
                 cell.bind(
                     "<Button-1>",
@@ -331,11 +249,11 @@ class StaffEventCalendar(ctk.CTkFrame):
                         lambda e, dt=d: self._on_day_click(dt)
                     )
 
-                # Hover
                 def on_enter(e, c=cell, bg=cell_bg,
                               sel=is_today or is_selected):
                     if not sel:
                         c.configure(fg_color="#7ab0f5")
+
                 def on_leave(e, c=cell, bg=cell_bg):
                     c.configure(fg_color=bg)
 
@@ -343,7 +261,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                     cell.bind("<Enter>", on_enter)
                     cell.bind("<Leave>", on_leave)
 
-        # ── Small event dot legend ─────────────────────
+        # ── Legend ────────────────────────────────────
         leg = ctk.CTkFrame(
             self.cal_outer, fg_color="transparent"
         )
@@ -414,7 +332,7 @@ class StaffEventCalendar(ctk.CTkFrame):
         # Get events
         if self._selected_date:
             date_filter = self._selected_date.isoformat()
-            query = """
+            query  = """
                 SELECT name, start_date, location
                 FROM events
                 WHERE start_date = ?
@@ -422,8 +340,8 @@ class StaffEventCalendar(ctk.CTkFrame):
             """
             params = (date_filter,)
         else:
-            today = datetime.date.today().isoformat()
-            query = """
+            today  = datetime.date.today().isoformat()
+            query  = """
                 SELECT name, start_date, location
                 FROM events
                 WHERE start_date >= ?
@@ -440,19 +358,20 @@ class StaffEventCalendar(ctk.CTkFrame):
                 rows = cursor.fetchall()
             except Exception:
                 cursor.execute(
-                    "SELECT name, start_date FROM events "
-                    "WHERE start_date >= ? ORDER BY start_date ASC LIMIT 10",
+                    "SELECT name, start_date "
+                    "FROM events WHERE start_date >= ? "
+                    "ORDER BY start_date ASC LIMIT 10",
                     (datetime.date.today().isoformat(),)
                 )
                 rows = [
-                    (r[0], r[1], "") for r in cursor.fetchall()
+                    (r[0], r[1], "")
+                    for r in cursor.fetchall()
                 ]
             conn.close()
         except Exception:
             rows = []
 
         if not rows:
-            # Show empty placeholder exactly like Image 2
             self._render_empty_panel()
             return
 
@@ -461,7 +380,8 @@ class StaffEventCalendar(ctk.CTkFrame):
             fg_color="transparent"
         )
         scroll.pack(
-            fill="both", expand=True, padx=12, pady=(0, 12)
+            fill="both", expand=True,
+            padx=12, pady=(0, 12)
         )
 
         for name, start_date, location in rows:
@@ -477,8 +397,10 @@ class StaffEventCalendar(ctk.CTkFrame):
                 card, width=5,
                 highlightthickness=0, bg="#F8F9FA"
             )
-            stripe.pack(side="left", fill="y",
-                        padx=(10, 0), pady=10)
+            stripe.pack(
+                side="left", fill="y",
+                padx=(10, 0), pady=10
+            )
             stripe.bind(
                 "<Configure>",
                 lambda e, s=stripe: (
@@ -544,7 +466,6 @@ class StaffEventCalendar(ctk.CTkFrame):
             ).pack(anchor="w")
 
     def _render_empty_panel(self):
-        """Empty state matching Image 2 exactly."""
         fields = [
             ("Event Name:",  "─" * 26),
             ("Date & Time:", "─" * 26),
