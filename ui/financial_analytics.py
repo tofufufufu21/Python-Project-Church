@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from PIL import Image
 from ui.theme import THEME
+from ui.components import build_notification_bell
 from ui.components import (
     build_sidebar, ADMIN_NAV, NAV_ICONS
 )
@@ -274,21 +275,9 @@ class FinancialAnalytics(ctk.CTkFrame):
             self._avatar_placeholder(right)
 
         # Notification bell
-        bell_frame = ctk.CTkFrame(
-            right,
-            fg_color="#F3F6FB",
-            corner_radius=20,
-            width=38, height=38
-        )
-        bell_frame.pack(side="right", padx=(0, 8))
-        bell_frame.pack_propagate(False)
 
-        ctk.CTkLabel(
-            bell_frame,
-            text="🔔",
-            font=("Arial", 16),
-            fg_color="transparent"
-        ).place(relx=0.5, rely=0.5, anchor="center")
+        bell = build_notification_bell(right, self.db)
+        bell.pack(side="right", padx=(0, 8), pady=8)
 
         # Search
         search_frame = ctk.CTkFrame(

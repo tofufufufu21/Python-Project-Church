@@ -26,7 +26,7 @@ class Settings(ctk.CTkFrame):
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
-        build_topbar(right, "Admin")
+        build_topbar(right, "Admin", self.db)
 
         content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=20)

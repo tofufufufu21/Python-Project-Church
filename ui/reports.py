@@ -20,14 +20,14 @@ class Reports(ctk.CTkFrame):
 
     def _build(self):
         self.sidebar, self.nav_btns = build_sidebar(
-            self, ADMIN_NAV, "Reports", self.on_logout
+            self, ADMIN_NAV, "Reports", self.on_logout, self.on_navigate
         )
         for item, btn in self.nav_btns.items():
             btn.configure(command=lambda i=item: self.on_navigate(i))
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
-        build_topbar(right, "Admin")
+        build_topbar(right, "Admin", self.db)
 
         content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=20)

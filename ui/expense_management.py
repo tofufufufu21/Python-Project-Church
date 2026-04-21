@@ -6,6 +6,7 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from ui.theme import THEME
 from ui.components import build_sidebar, ADMIN_NAV
+from ui.components import build_notification_bell
 from core.ai_engine import EXPENSE_CATEGORIES
 
 
@@ -24,7 +25,7 @@ class ExpenseManagement(ctk.CTkFrame):
 
     def _build(self):
         self.sidebar, self.nav_btns = build_sidebar(
-            self, ADMIN_NAV, "Expense Management", self.on_logout
+            self, ADMIN_NAV, "Expense Management", self.on_logout, self.on_navigate
         )
         for item, btn in self.nav_btns.items():
             btn.configure(command=lambda i=item: self.on_navigate(i))
@@ -89,10 +90,9 @@ class ExpenseManagement(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 12), pady=6)
 
         # Bell
-        bell = ctk.CTkFrame(right, fg_color="#F3F6FB", corner_radius=20, width=38, height=38)
-        bell.pack(side="right", padx=(0, 8))
-        bell.pack_propagate(False)
-        ctk.CTkLabel(bell, text="🔔", font=("Arial", 16), fg_color="transparent").place(relx=0.5, rely=0.5, anchor="center")
+
+        bell = build_notification_bell(right, self.db)
+        bell.pack(side="right", padx=(0, 8), pady=8)
 
         # Avatar
         av = tk.Canvas(right, width=38, height=38, bg="#FFFFFF", highlightthickness=0)

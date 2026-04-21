@@ -11,6 +11,7 @@ import calendar
 from PIL import Image
 from ui.theme import THEME
 from ui.components import get_liturgical_season
+from ui.components import build_notification_bell
 
 REFRESH_INTERVAL = 60000
 TICKER_INTERVAL  = 8000
@@ -408,33 +409,10 @@ class AdminDashboard(ctk.CTkFrame):
             self._avatar_placeholder(right_col)
 
         # 2. Notification Bell using a safe tk.Canvas (Middle)
-        bell_canvas = tk.Canvas(
-            right_col, width=40, height=40,
-            bg="#FFFFFF", highlightthickness=0
-        )
-        bell_canvas.pack(side="right", padx=(10, 0))
 
-        # Circle background for bell
-        bell_canvas.create_oval(
-            2, 2, 38, 38,
-            fill="#F3F6FB",
-            outline=THEME.get("border", "#E0E0E0"), width=1
-        )
-        # Bell emoji
-        bell_canvas.create_text(
-            20, 20, text="🔔",
-            font=("Arial", 14), fill="#1a2a4a"
-        )
-        # Red Notification Badge
-        bell_canvas.create_oval(
-            24, 2, 38, 16,
-            fill="#FF4C4C", outline="#FF4C4C"
-        )
-        # Number inside the badge
-        bell_canvas.create_text(
-            31, 9, text="3",
-            font=("Arial", 8, "bold"), fill="#FFFFFF"
-        )
+        bell = build_notification_bell(right_col, self.db)
+        bell.pack(side="right", padx=(10, 0), pady=8)
+
 
         # 3. Search Bar (Packed Right - Leftmost)
         search_frame = ctk.CTkFrame(

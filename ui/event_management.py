@@ -4,6 +4,7 @@ import datetime
 import calendar as cal_module
 from ui.theme import THEME
 from ui.components import build_sidebar, build_topbar, ADMIN_NAV, get_liturgical_season
+from ui.components import build_notification_bell
 
 
 # ─── COLOR PALETTE FOR EVENTS ─────────────────────────────────────────────────
@@ -79,7 +80,7 @@ class EventManagement(ctk.CTkFrame):
 
     def _build(self):
         self.sidebar, self.nav_btns = build_sidebar(
-            self, ADMIN_NAV, "Event Management", self.on_logout
+            self, ADMIN_NAV, "Event Management", self.on_logout, self.on_navigate
         )
         for item, btn in self.nav_btns.items():
             btn.configure(command=lambda i=item: self.on_navigate(i))
@@ -213,10 +214,8 @@ class EventManagement(ctk.CTkFrame):
         ).pack(side="left", padx=(0, 12), pady=6)
 
         # Bell
-        bell = ctk.CTkFrame(right, fg_color="#F3F6FB", corner_radius=20, width=38, height=38)
-        bell.pack(side="right", padx=(0, 8))
-        bell.pack_propagate(False)
-        ctk.CTkLabel(bell, text="🔔", font=("Arial", 16), fg_color="transparent").place(relx=0.5, rely=0.5, anchor="center")
+        bell = build_notification_bell(right, self.db)
+        bell.pack(side="right", padx=(0, 8), pady=8)
 
         # Avatar circle
         av = tk.Canvas(right, width=38, height=38, bg="#FFFFFF", highlightthickness=0)

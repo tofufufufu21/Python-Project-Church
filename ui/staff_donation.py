@@ -4,7 +4,7 @@ import datetime
 import os
 from PIL import Image, ImageTk
 from ui.theme import THEME
-
+from ui.components import build_notification_bell
 
 # ─── UPDATED STAFF NAV (Mass Intentions removed) ───
 STAFF_NAV_LOCAL = [
@@ -183,16 +183,8 @@ class StaffDonationEntry(ctk.CTkFrame):
             self._avatar_fallback(right)
 
         # Bell + badge
-        bell = ctk.CTkFrame(right, fg_color="#F3F6FB", corner_radius=20, width=40, height=40)
-        bell.pack(side="right", padx=(0, 8))
-        bell.pack_propagate(False)
-        ctk.CTkLabel(bell, text="🔔", font=("Arial", 16), fg_color="transparent").place(
-            relx=0.5, rely=0.5, anchor="center"
-        )
-        badge = tk.Canvas(bell, width=14, height=14, bg="#F3F6FB", highlightthickness=0)
-        badge.place(x=22, y=2)
-        badge.create_oval(1, 1, 13, 13, fill="#FF4D4D", outline="")
-        badge.create_text(7, 7, text="1", fill="white", font=("Arial", 7, "bold"))
+        bell = build_notification_bell(right, self.db)
+        bell.pack(side="right", padx=(0, 8), pady=8)
 
     def _avatar_fallback(self, parent):
         c = tk.Canvas(parent, width=40, height=40, bg="#FFFFFF", highlightthickness=0)

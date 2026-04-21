@@ -513,7 +513,7 @@ class ChatbotScreen(ctk.CTkFrame):
             build_sidebar, build_topbar, ADMIN_NAV
         )
         self.sidebar, self.nav_btns = build_sidebar(
-            self, ADMIN_NAV, "AI Assistant", self.on_logout
+            self, ADMIN_NAV, "AI Assistant", self.on_logout, self.on_navigate
         )
         for item, btn in self.nav_btns.items():
             btn.configure(
@@ -522,7 +522,7 @@ class ChatbotScreen(ctk.CTkFrame):
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
-        build_topbar(right, "Admin")
+        build_topbar(right, "Admin", self.db)
 
         # Chat header
         chat_header = ctk.CTkFrame(
