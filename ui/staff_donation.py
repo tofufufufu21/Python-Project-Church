@@ -126,7 +126,16 @@ class StaffDonationEntry(ctk.CTkFrame):
             btn.pack(fill="x", padx=10, pady=2)
             self._nav_btns[item] = btn
 
-        # Settings at bottom
+        # ── Logout button at bottom ────────────────────
+        ctk.CTkButton(
+            sidebar, text="↩  Logout",
+            fg_color="transparent", text_color="#FF8888",
+            hover_color="#2a4aaa", anchor="w",
+            font=("Arial", 12), height=38, corner_radius=8,
+            command=self.on_logout
+        ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
+
+        # Settings above logout
         ctk.CTkButton(
             sidebar, text="⚙  Settings",
             fg_color="transparent", text_color="#AABBDD",
@@ -185,6 +194,18 @@ class StaffDonationEntry(ctk.CTkFrame):
         # Bell + badge
         bell = build_notification_bell(right, self.db)
         bell.pack(side="right", padx=(0, 8), pady=8)
+
+        # Logout button in topbar as well (quick access)
+        ctk.CTkButton(
+            right, text="↩  Logout",
+            font=("Arial", 11, "bold"),
+            width=90, height=34,
+            corner_radius=8,
+            fg_color="#FF4D4D",
+            hover_color="#cc0000",
+            text_color="#FFFFFF",
+            command=self.on_logout
+        ).pack(side="right", padx=(0, 12))
 
     def _avatar_fallback(self, parent):
         c = tk.Canvas(parent, width=40, height=40, bg="#FFFFFF", highlightthickness=0)
