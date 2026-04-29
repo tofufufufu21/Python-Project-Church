@@ -4,7 +4,7 @@ import datetime
 import os
 from PIL import Image, ImageTk
 from ui.theme import THEME
-from ui.components import build_notification_bell, build_screen_topbar
+from ui.components import build_notification_bell, build_screen_topbar, polish_interactions
 
 # ─── UPDATED STAFF NAV (Mass Intentions removed) ───
 STAFF_NAV_LOCAL = [
@@ -705,6 +705,8 @@ class StaffDonationEntry(ctk.CTkFrame):
             StaffExpenseRequest(container, self.db)
         elif screen == "Basic Reports":
             StaffBasicReports(container, self.db)
+
+        self.after_idle(lambda: polish_interactions(self))
 
     def _rebuild_donation_content(self, parent):
         """Re-render donation content into given parent."""

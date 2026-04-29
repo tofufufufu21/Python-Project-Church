@@ -735,6 +735,140 @@ def stat_card(parent, value, label, sublabel="", accent=None, inverted=False):
     return card
 
 
+def _safe_config(widget, **kwargs):
+    try:
+        widget.configure(**kwargs)
+    except Exception:
+        pass
+
+
+def _safe_cget(widget, option, default=None):
+    try:
+        return widget.cget(option)
+    except Exception:
+        return default
+
+
+def _safe_bind(widget, sequence, callback):
+    try:
+        widget.bind(sequence, callback, add="+")
+    except TypeError:
+        try:
+            widget.bind(sequence, callback, "+")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def _ctk_classes(*names):
+    classes = []
+    for name in names:
+        cls = getattr(ctk, name, None)
+        if cls is not None:
+            classes.append(cls)
+    return tuple(classes)
+
+
+def _walk_widgets(root):
+    yield root
+    try:
+        children = root.winfo_children()
+    except Exception:
+        children = []
+    for child in children:
+        yield from _walk_widgets(child)
+
+
+def _polish_button(widget):
+    if getattr(widget, "_churchtrack_polished_button", False):
+        return
+    widget._churchtrack_polished_button = True
+    _safe_config(widget, cursor="hand2")
+
+    def press(_event=None):
+        if _safe_cget(widget, "state", "normal") == "disabled":
+            return
+        widget._churchtrack_press_base_fg = _safe_cget(widget, "fg_color", THEME["bg_panel"])
+        widget._churchtrack_press_base_border = _safe_cget(widget, "border_color", THEME["border"])
+        press_fg = _safe_cget(widget, "hover_color", THEME["bg_card_hover"])
+        if not press_fg or press_fg == "transparent":
+            press_fg = THEME["bg_card_hover"]
+        _safe_config(widget, fg_color=press_fg, border_color=THEME["border_active"])
+
+    def release(_event=None):
+        def restore():
+            base_fg = getattr(widget, "_churchtrack_press_base_fg", THEME["bg_panel"])
+            base_border = getattr(widget, "_churchtrack_press_base_border", THEME["border"])
+            _safe_config(widget, fg_color=base_fg, border_color=base_border)
+
+        try:
+            widget.after(90, restore)
+        except Exception:
+            restore()
+
+    _safe_bind(widget, "<ButtonPress-1>", press)
+    _safe_bind(widget, "<ButtonRelease-1>", release)
+
+
+def _polish_entry(widget):
+    if getattr(widget, "_churchtrack_polished_entry", False):
+        return
+    widget._churchtrack_polished_entry = True
+
+    base_border = _safe_cget(widget, "border_color", THEME["border"])
+    base_width = _safe_cget(widget, "border_width", 1)
+    base_fg = _safe_cget(widget, "fg_color", THEME["input"])
+
+    def focus_in(_event=None):
+        _safe_config(
+            widget,
+            border_color=THEME["border_active"],
+            border_width=max(int(base_width or 0), 1),
+            fg_color=THEME["bg_panel"],
+        )
+
+    def focus_out(_event=None):
+        _safe_config(
+            widget,
+            border_color=base_border,
+            border_width=base_width,
+            fg_color=base_fg,
+        )
+
+    _safe_bind(widget, "<FocusIn>", focus_in)
+    _safe_bind(widget, "<FocusOut>", focus_out)
+
+
+def polish_interactions(root):
+    """Add lightweight cursor, focus, and press feedback to an existing screen."""
+    button_classes = _ctk_classes("CTkButton")
+    entry_classes = _ctk_classes("CTkEntry", "CTkTextbox")
+    choice_classes = _ctk_classes(
+        "CTkOptionMenu",
+        "CTkComboBox",
+        "CTkCheckBox",
+        "CTkRadioButton",
+        "CTkSwitch",
+        "CTkSegmentedButton",
+    )
+
+    for widget in _walk_widgets(root):
+        if button_classes and isinstance(widget, button_classes):
+            _polish_button(widget)
+        elif entry_classes and isinstance(widget, entry_classes):
+            _polish_entry(widget)
+        elif choice_classes and isinstance(widget, choice_classes):
+            _safe_config(widget, cursor="hand2")
+        elif isinstance(widget, (tk.Button, tk.Checkbutton, tk.Radiobutton)):
+            _safe_config(
+                widget,
+                cursor="hand2",
+                activebackground=THEME["sidebar_hover"],
+                activeforeground=THEME["text_main"],
+            )
+
+
 class DatePickerEntry(ctk.CTkFrame):
     """Reusable date picker that keeps the existing get/set/delete contract."""
 
