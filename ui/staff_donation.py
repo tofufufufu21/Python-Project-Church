@@ -4,7 +4,7 @@ import datetime
 import os
 from PIL import Image, ImageTk
 from ui.theme import THEME
-from ui.components import build_notification_bell, build_screen_topbar
+from ui.components import DatePickerEntry, build_notification_bell, build_screen_topbar, polish_interactions
 
 # ─── UPDATED STAFF NAV (Mass Intentions removed) ───
 STAFF_NAV_LOCAL = [
@@ -418,18 +418,33 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         self._entries = {}
 
-        # Donor Name
-        self._form_field(form, "Donor Name", "donor_name")
+        # Donor Entry
+        self._form_field(form, "Donor Entry", "donor_name")
 
         # Amount
         self._form_field(form, "Amount", "amount")
+
+        # Donation Date
+        date_row = ctk.CTkFrame(form, fg_color="transparent")
+        date_row.pack(fill="x", padx=24, pady=10)
+
+        ctk.CTkLabel(
+            date_row, text="Date",
+            font=(THEME["font_family"], 12, "bold"),
+            text_color=THEME["text_main"],
+            anchor="w", width=160
+        ).pack(side="left")
+
+        date_entry = DatePickerEntry(date_row)
+        date_entry.pack(side="left", fill="x", expand=True)
+        self._entries["date"] = date_entry
 
         # Payment Method dropdown
         pm_row = ctk.CTkFrame(form, fg_color="transparent")
         pm_row.pack(fill="x", padx=24, pady=10)
 
         ctk.CTkLabel(
-            pm_row, text="Payment Method",
+            pm_row, text="Payment / Source",
             font=(THEME["font_family"], 12, "bold"),
             text_color=THEME["text_main"],
             anchor="w", width=160
@@ -476,6 +491,8 @@ class StaffDonationEntry(ctk.CTkFrame):
         )
         self._ref_entry.pack(side="left", fill="x", expand=True)
         self._entries["ref_no"] = self._ref_entry
+
+        self._form_field(form, "Notes", "notes")
 
         # Bottom padding
         ctk.CTkLabel(form, text="").pack(pady=2)
@@ -601,16 +618,23 @@ class StaffDonationEntry(ctk.CTkFrame):
     def _save_entry(self):
         donor   = self._entries["donor_name"].get().strip()
         amount  = self._entries["amount"].get().strip()
+        date    = self._entries["date"].get().strip()
         ref_no  = self._entries["ref_no"].get().strip()
+        notes   = self._entries["notes"].get().strip()
         cat     = self._selected_category.get()
         service = self._selected_service.get()
         payment = self._payment_var.get()
 
         if not donor:
-            self._set_status("Donor Name is required.", "danger")
+            self._set_status("Donor Entry is required.", "danger")
             return
         if not amount:
             self._set_status("Amount is required.", "danger")
+            return
+        try:
+            datetime.datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            self._set_status("Date must use YYYY-MM-DD.", "danger")
             return
         if payment == "GCash" and not ref_no:
             self._set_status("Reference Number is required for GCash.", "danger")
@@ -624,19 +648,30 @@ class StaffDonationEntry(ctk.CTkFrame):
             self._set_status("Amount must be a valid number greater than 0.", "danger")
             return
 
-        today   = datetime.date.today().isoformat()
         remarks = "Service: {service} | Payment: {payment}{ref}".format(
             service=service,
             payment=payment,
             ref=(" | Ref: " + ref_no) if ref_no else ""
         )
+        if notes:
+            remarks += " | Notes: " + notes
 
-        self.db.save_transaction(
-            today, donor, cat, amount_val, remarks
+        trans_id = self.db.save_transaction(
+            date, donor, cat, amount_val, remarks
         )
+        try:
+            self.db.log_staff_activity(
+                "staff",
+                "CREATE_DONATION",
+                "Transaction ID {}".format(trans_id),
+                "Success",
+                "{} | {} | P {:,.2f}".format(donor, cat, amount_val)
+            )
+        except Exception:
+            pass
 
         self._set_status(
-            "Entry saved — {} | {} | ₱{:,.0f}".format(donor, cat, amount_val),
+            "Entry saved - {} | {} | P {:,.0f}".format(donor, cat, amount_val),
             "success"
         )
         self._clear_form()
@@ -645,6 +680,8 @@ class StaffDonationEntry(ctk.CTkFrame):
         self._entries["donor_name"].delete(0, "end")
         self._entries["amount"].delete(0, "end")
         self._entries["ref_no"].delete(0, "end")
+        self._entries["notes"].delete(0, "end")
+        self._entries["date"].set(datetime.date.today().isoformat())
         self._payment_var.set("Cash")
         self._on_category_select(DONATION_CATEGORIES[0])
         self._on_service_select(SERVICE_TYPES[0])
@@ -705,6 +742,8 @@ class StaffDonationEntry(ctk.CTkFrame):
             StaffExpenseRequest(container, self.db)
         elif screen == "Basic Reports":
             StaffBasicReports(container, self.db)
+
+        self.after_idle(lambda: polish_interactions(self))
 
     def _rebuild_donation_content(self, parent):
         """Re-render donation content into given parent."""

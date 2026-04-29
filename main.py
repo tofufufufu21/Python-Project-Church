@@ -9,6 +9,7 @@ from core.db_manager import DatabaseManager
 from core.ai_engine import AIEngine
 
 from ui.theme import THEME
+from ui.components import polish_interactions
 from ui.login_ui import LoginFrame
 from ui.dashboard import AdminDashboard
 from ui.financial_analytics import FinancialAnalytics
@@ -54,7 +55,8 @@ class ChurchTrackApp(ctk.CTk):
     def show_login(self):
         self._clear()
         self.configure(fg_color=THEME["bg_main"])
-        LoginFrame(self, self.on_login_success)
+        frame = LoginFrame(self, self.on_login_success)
+        self.after_idle(lambda: polish_interactions(frame))
 
     def on_login_success(self, username, password):
         role = self.db_manager.validate_login(username, password)
@@ -64,7 +66,8 @@ class ChurchTrackApp(ctk.CTk):
         elif role == "staff":
             self._clear()
             self.configure(fg_color=THEME["bg_main"])
-            StaffDonationEntry(self, self.db_manager, self.show_login)
+            frame = StaffDonationEntry(self, self.db_manager, self.show_login)
+            self.after_idle(lambda: polish_interactions(frame))
         else:
             raise ValueError("Invalid credentials")
 
@@ -140,14 +143,16 @@ class ChurchTrackApp(ctk.CTk):
         }
 
         try:
-            screens.get(screen, screens["Dashboard"])()
+            frame = screens.get(screen, screens["Dashboard"])()
+            self.after_idle(lambda: polish_interactions(frame))
         except Exception as error:
             print(f"Screen load error for '{screen}': {error}")
 
             import traceback
 
             traceback.print_exc()
-            screens["Dashboard"]()
+            frame = screens["Dashboard"]()
+            self.after_idle(lambda: polish_interactions(frame))
 
 
 if __name__ == "__main__":

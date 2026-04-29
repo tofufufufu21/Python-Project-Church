@@ -1,4 +1,5 @@
 import datetime
+import calendar
 import os
 import tkinter as tk
 
@@ -377,6 +378,176 @@ def create_secondary_button(parent, text, command):
     )
 
 
+def format_currency(value, decimals=0):
+    try:
+        value = float(value or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return "P {:,.{}f}".format(value, decimals)
+
+
+def parse_iso_date(value, fallback=None):
+    try:
+        return datetime.datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except Exception:
+        return fallback
+
+
+def get_date_range(mode, from_date=None, to_date=None, specific_date=None, month_name=None):
+    today = datetime.date.today()
+    mode = mode or "All Time"
+    if mode == "This Week":
+        start = today - datetime.timedelta(days=today.weekday())
+        end = start + datetime.timedelta(days=6)
+        return start.isoformat(), end.isoformat()
+    if mode == "This Month":
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1, day=1) - datetime.timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1, day=1) - datetime.timedelta(days=1)
+        return start.isoformat(), end.isoformat()
+    if mode == "Specific Date":
+        date_value = parse_iso_date(specific_date, today)
+        return date_value.isoformat(), date_value.isoformat()
+    if mode == "Custom Range":
+        start = parse_iso_date(from_date)
+        end = parse_iso_date(to_date)
+        return (
+            start.isoformat() if start else None,
+            end.isoformat() if end else None,
+        )
+    if mode == "By Month" and month_name:
+        try:
+            month = list(calendar.month_name).index(month_name)
+        except ValueError:
+            month = today.month
+        start = datetime.date(today.year, month, 1)
+        if month == 12:
+            end = datetime.date(today.year + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end = datetime.date(today.year, month + 1, 1) - datetime.timedelta(days=1)
+        return start.isoformat(), end.isoformat()
+    return None, None
+
+
+def create_status_badge(parent, status, compact=False):
+    status_text = str(status or "Unknown").strip()
+    key = status_text.upper()
+    palette = {
+        "APPROVED": (THEME["success_soft"], THEME["success"]),
+        "SUCCESS": (THEME["success_soft"], THEME["success"]),
+        "ON TRACK": (THEME["success_soft"], THEME["success"]),
+        "PENDING": (THEME["warning_soft"], THEME["warning"]),
+        "NEW": (THEME["info_soft"], THEME["info"]),
+        "NEAR LIMIT": (THEME["warning_soft"], THEME["warning"]),
+        "REJECTED": (THEME["danger_soft"], THEME["danger"]),
+        "FAILED": (THEME["danger_soft"], THEME["danger"]),
+        "OVER BUDGET": (THEME["danger_soft"], THEME["danger"]),
+        "NO BUDGET": (THEME["bg_panel"], THEME["text_sub"]),
+        "UPCOMING": (THEME["info_soft"], THEME["info"]),
+        "ONGOING": (THEME["success_soft"], THEME["success"]),
+        "COMPLETED": (THEME["bg_panel"], THEME["text_sub"]),
+        "PAST": (THEME["bg_panel"], THEME["text_sub"]),
+    }
+    bg, fg = palette.get(key, (THEME["bg_panel"], THEME["text_sub"]))
+    badge = ctk.CTkFrame(
+        parent,
+        fg_color=bg,
+        corner_radius=THEME["radius_sm"],
+        border_width=1,
+        border_color=THEME["border"],
+    )
+    ctk.CTkLabel(
+        badge,
+        text=status_text,
+        font=font(9 if compact else 10, "bold"),
+        text_color=fg,
+    ).pack(padx=8 if compact else 10, pady=3 if compact else 5)
+    return badge
+
+
+def create_labeled_entry(parent, label, placeholder="", initial="", width=None):
+    wrap = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(
+        wrap,
+        text=label,
+        font=font(11, "bold"),
+        text_color=THEME["text_sub"],
+        anchor="w",
+    ).pack(anchor="w", pady=(0, 4))
+    entry_options = {
+        "placeholder_text": placeholder,
+        "height": THEME["control_h"],
+        "font": font(12),
+    }
+    if width is not None:
+        entry_options["width"] = width
+    entry_options.update(input_style(THEME["radius_md"]))
+    entry = ctk.CTkEntry(wrap, **entry_options)
+    if initial:
+        entry.insert(0, initial)
+    entry.pack(fill="x")
+    wrap.entry = entry
+    return wrap
+
+
+def create_labeled_option(parent, label, values, variable=None, command=None, width=None):
+    wrap = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(
+        wrap,
+        text=label,
+        font=font(11, "bold"),
+        text_color=THEME["text_sub"],
+        anchor="w",
+    ).pack(anchor="w", pady=(0, 4))
+    if variable is None:
+        variable = ctk.StringVar(value=values[0] if values else "")
+    menu_options = {
+        "values": values,
+        "variable": variable,
+        "command": command,
+        "height": THEME["control_h"],
+        "fg_color": THEME["input"],
+        "button_color": THEME["primary"],
+        "button_hover_color": THEME["primary_hover"],
+        "dropdown_fg_color": THEME["bg_card"],
+        "dropdown_hover_color": THEME["bg_card_hover"],
+        "text_color": THEME["text_main"],
+        "dropdown_text_color": THEME["text_main"],
+        "font": font(12),
+        "corner_radius": THEME["radius_md"],
+    }
+    if width is not None:
+        menu_options["width"] = width
+    menu = ctk.CTkOptionMenu(wrap, **menu_options)
+    menu.pack(fill="x")
+    wrap.menu = menu
+    wrap.variable = variable
+    return wrap
+
+
+def add_card_title(parent, title, subtitle=None):
+    header = ctk.CTkFrame(parent, fg_color="transparent")
+    header.pack(fill="x", padx=THEME["card_pad"], pady=(16, 10))
+    ctk.CTkLabel(
+        header,
+        text=title,
+        font=font(15, "bold"),
+        text_color=THEME["text_main"],
+        anchor="w",
+    ).pack(anchor="w")
+    if subtitle:
+        ctk.CTkLabel(
+            header,
+            text=subtitle,
+            font=font(11),
+            text_color=THEME["text_sub"],
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 0))
+    return header
+
+
 def create_table_container(parent):
     outer = ctk.CTkFrame(
         parent,
@@ -733,6 +904,140 @@ def stat_card(parent, value, label, sublabel="", accent=None, inverted=False):
             except Exception:
                 pass
     return card
+
+
+def _safe_config(widget, **kwargs):
+    try:
+        widget.configure(**kwargs)
+    except Exception:
+        pass
+
+
+def _safe_cget(widget, option, default=None):
+    try:
+        return widget.cget(option)
+    except Exception:
+        return default
+
+
+def _safe_bind(widget, sequence, callback):
+    try:
+        widget.bind(sequence, callback, add="+")
+    except TypeError:
+        try:
+            widget.bind(sequence, callback, "+")
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
+def _ctk_classes(*names):
+    classes = []
+    for name in names:
+        cls = getattr(ctk, name, None)
+        if cls is not None:
+            classes.append(cls)
+    return tuple(classes)
+
+
+def _walk_widgets(root):
+    yield root
+    try:
+        children = root.winfo_children()
+    except Exception:
+        children = []
+    for child in children:
+        yield from _walk_widgets(child)
+
+
+def _polish_button(widget):
+    if getattr(widget, "_churchtrack_polished_button", False):
+        return
+    widget._churchtrack_polished_button = True
+    _safe_config(widget, cursor="hand2")
+
+    def press(_event=None):
+        if _safe_cget(widget, "state", "normal") == "disabled":
+            return
+        widget._churchtrack_press_base_fg = _safe_cget(widget, "fg_color", THEME["bg_panel"])
+        widget._churchtrack_press_base_border = _safe_cget(widget, "border_color", THEME["border"])
+        press_fg = _safe_cget(widget, "hover_color", THEME["bg_card_hover"])
+        if not press_fg or press_fg == "transparent":
+            press_fg = THEME["bg_card_hover"]
+        _safe_config(widget, fg_color=press_fg, border_color=THEME["border_active"])
+
+    def release(_event=None):
+        def restore():
+            base_fg = getattr(widget, "_churchtrack_press_base_fg", THEME["bg_panel"])
+            base_border = getattr(widget, "_churchtrack_press_base_border", THEME["border"])
+            _safe_config(widget, fg_color=base_fg, border_color=base_border)
+
+        try:
+            widget.after(90, restore)
+        except Exception:
+            restore()
+
+    _safe_bind(widget, "<ButtonPress-1>", press)
+    _safe_bind(widget, "<ButtonRelease-1>", release)
+
+
+def _polish_entry(widget):
+    if getattr(widget, "_churchtrack_polished_entry", False):
+        return
+    widget._churchtrack_polished_entry = True
+
+    base_border = _safe_cget(widget, "border_color", THEME["border"])
+    base_width = _safe_cget(widget, "border_width", 1)
+    base_fg = _safe_cget(widget, "fg_color", THEME["input"])
+
+    def focus_in(_event=None):
+        _safe_config(
+            widget,
+            border_color=THEME["border_active"],
+            border_width=max(int(base_width or 0), 1),
+            fg_color=THEME["bg_panel"],
+        )
+
+    def focus_out(_event=None):
+        _safe_config(
+            widget,
+            border_color=base_border,
+            border_width=base_width,
+            fg_color=base_fg,
+        )
+
+    _safe_bind(widget, "<FocusIn>", focus_in)
+    _safe_bind(widget, "<FocusOut>", focus_out)
+
+
+def polish_interactions(root):
+    """Add lightweight cursor, focus, and press feedback to an existing screen."""
+    button_classes = _ctk_classes("CTkButton")
+    entry_classes = _ctk_classes("CTkEntry", "CTkTextbox")
+    choice_classes = _ctk_classes(
+        "CTkOptionMenu",
+        "CTkComboBox",
+        "CTkCheckBox",
+        "CTkRadioButton",
+        "CTkSwitch",
+        "CTkSegmentedButton",
+    )
+
+    for widget in _walk_widgets(root):
+        if button_classes and isinstance(widget, button_classes):
+            _polish_button(widget)
+        elif entry_classes and isinstance(widget, entry_classes):
+            _polish_entry(widget)
+        elif choice_classes and isinstance(widget, choice_classes):
+            _safe_config(widget, cursor="hand2")
+        elif isinstance(widget, (tk.Button, tk.Checkbutton, tk.Radiobutton)):
+            _safe_config(
+                widget,
+                cursor="hand2",
+                activebackground=THEME["sidebar_hover"],
+                activeforeground=THEME["text_main"],
+            )
 
 
 class DatePickerEntry(ctk.CTkFrame):
