@@ -3,7 +3,7 @@ import threading
 import datetime
 import os
 from ui.theme import THEME
-from ui.components import build_sidebar, build_topbar, ADMIN_NAV
+from ui.components import build_sidebar, build_screen_topbar, ADMIN_NAV
 from core.report_engine import ReportEngine
 
 
@@ -27,34 +27,42 @@ class Reports(ctk.CTkFrame):
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
-        build_topbar(right, "Admin", self.db)
+        build_screen_topbar(
+            right,
+            "Reports",
+            "Generate filtered PDF reports and review export history.",
+            db_manager=self.db,
+            role="Admin",
+            show_search=True,
+            search_placeholder="Search reports...",
+        )
 
         content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=20)
 
         ctk.CTkLabel(
-            content, text="PDF Report Generation",
-            font=("Arial", 20, "bold"),
+            content, text="Report Builder",
+            font=(THEME["font_family"], 28, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", pady=(0, 16))
 
         # Parish name
         parish_card = ctk.CTkFrame(
             content, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         parish_card.pack(fill="x", pady=(0, 16))
 
         ctk.CTkLabel(
             parish_card, text="Parish Name for Report Header",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
         self.parish_entry = ctk.CTkEntry(
-            parish_card, height=38, corner_radius=8,
+            parish_card, height=38, corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FAFAFA",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
             placeholder_text="e.g. St. Joseph Parish"
         )
@@ -64,13 +72,13 @@ class Reports(ctk.CTkFrame):
         # Date range
         date_card = ctk.CTkFrame(
             content, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         date_card.pack(fill="x", pady=(0, 16))
 
         ctk.CTkLabel(
             date_card, text="Select Date Range",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -83,12 +91,12 @@ class Reports(ctk.CTkFrame):
         start_col.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         ctk.CTkLabel(
             start_col, text="Start Date (YYYY-MM-DD)",
-            font=("Arial", 11), text_color=THEME["text_sub"]
+            font=(THEME["font_family"], 11), text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 4))
         self.start_entry = ctk.CTkEntry(
-            start_col, height=38, corner_radius=8,
+            start_col, height=38, corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FAFAFA",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"]
         )
         self.start_entry.insert(0, "2024-01-01")
@@ -98,12 +106,12 @@ class Reports(ctk.CTkFrame):
         end_col.grid(row=0, column=1, sticky="ew", padx=(10, 0))
         ctk.CTkLabel(
             end_col, text="End Date (YYYY-MM-DD)",
-            font=("Arial", 11), text_color=THEME["text_sub"]
+            font=(THEME["font_family"], 11), text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 4))
         self.end_entry = ctk.CTkEntry(
-            end_col, height=38, corner_radius=8,
+            end_col, height=38, corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FAFAFA",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"]
         )
         self.end_entry.insert(0, "2024-12-31")
@@ -125,24 +133,24 @@ class Reports(ctk.CTkFrame):
         ]:
             ctk.CTkButton(
                 quick_row, text=label,
-                font=("Arial", 11), height=32, corner_radius=8,
+                font=(THEME["font_family"], 11), height=32, corner_radius=16,
                 fg_color=THEME["bg_main"],
                 text_color=THEME["text_main"],
                 border_width=1, border_color=THEME["border"],
-                hover_color="#E8EDF5",
+                hover_color=THEME["border"],
                 command=lambda s=start, e=end: self._set_range(s, e)
             ).pack(side="left", padx=(0, 8))
 
         # Report type
         type_card = ctk.CTkFrame(
             content, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         type_card.pack(fill="x", pady=(0, 16))
 
         ctk.CTkLabel(
             type_card, text="Report Type",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -161,29 +169,29 @@ class Reports(ctk.CTkFrame):
             ctk.CTkRadioButton(
                 col, text=rtype,
                 variable=self.report_type, value=rtype,
-                font=("Arial", 13, "bold"),
+                font=(THEME["font_family"], 13, "bold"),
                 text_color=THEME["text_main"],
                 fg_color=THEME["primary"],
                 hover_color=THEME["primary_dark"]
             ).pack(anchor="w")
             ctk.CTkLabel(
                 col, text=desc,
-                font=("Arial", 10),
+                font=(THEME["font_family"], 10),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w", padx=(24, 0))
 
         # Status and generate button
         self.status_label = ctk.CTkLabel(
             content, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.status_label.pack(pady=(8, 0))
 
         ctk.CTkButton(
             content, text="Generate PDF Report",
-            font=("Arial", 14, "bold"), height=52,
-            corner_radius=10,
+            font=(THEME["font_family"], 14, "bold"), height=52,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._generate_report
@@ -192,13 +200,13 @@ class Reports(ctk.CTkFrame):
         # Report history
         history_card = ctk.CTkFrame(
             content, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         history_card.pack(fill="x", pady=(20, 0))
 
         ctk.CTkLabel(
             history_card, text="Generated Reports",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -285,7 +293,7 @@ class Reports(ctk.CTkFrame):
             ctk.CTkLabel(
                 self.history_frame,
                 text="No reports generated yet.",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             return
@@ -299,7 +307,7 @@ class Reports(ctk.CTkFrame):
             ctk.CTkLabel(
                 self.history_frame,
                 text="No reports generated yet.",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             return
@@ -309,13 +317,13 @@ class Reports(ctk.CTkFrame):
             row.pack(fill="x", pady=3)
             ctk.CTkLabel(
                 row, text=fname,
-                font=("Arial", 11),
+                font=(THEME["font_family"], 11),
                 text_color=THEME["text_main"]
             ).pack(side="left")
             ctk.CTkButton(
                 row, text="Open",
-                font=("Arial", 11), height=28, width=60,
-                corner_radius=6,
+                font=(THEME["font_family"], 11), height=28, width=60,
+                corner_radius=14,
                 fg_color=THEME["primary"],
                 hover_color=THEME["primary_dark"],
                 command=lambda f=fname: self._open_file(

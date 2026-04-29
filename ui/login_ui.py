@@ -3,7 +3,7 @@ import tkinter as tk
 import os
 import json
 from PIL import Image, ImageTk
-from ui.theme import THEME
+from ui.theme import THEME, MODERN_THEME
 
 REMEMBER_FILE = "core/.remember_me.json"
 
@@ -30,13 +30,13 @@ def _clear_remembered():
 
 
 class LoginFrame(ctk.CTkFrame):
-
     def __init__(self, master, on_login):
-        super().__init__(master, fg_color="#2f3e6b")
-        self.on_login      = on_login
-        self._logo_img     = None
-        self._bg_img       = None
-        self._show_pw      = False   # track password visibility
+        super().__init__(master, fg_color=THEME["bg_main"])
+
+        self.on_login = on_login
+        self._logo_img = None
+        self._bg_img = None
+        self._show_pw = False
 
         self.pack(fill="both", expand=True)
         self._build()
@@ -44,208 +44,251 @@ class LoginFrame(ctk.CTkFrame):
     def _build(self):
         self._draw_background()
 
-        # ── SHADOW ──────────────────────────────────────
         shadow = ctk.CTkFrame(
-            self, fg_color="#000000",
-            width=830, height=510, corner_radius=20
+            self,
+            fg_color=MODERN_THEME["shadow"],
+            width=886,
+            height=566,
+            corner_radius=22,
         )
-        shadow.place(relx=0.5, rely=0.5, anchor="center")
+        shadow.place(relx=0.5, rely=0.508, anchor="center")
 
-        # ── MAIN CARD ────────────────────────────────────
         card = ctk.CTkFrame(
-            self, fg_color="#FFFFFF",
-            corner_radius=18, width=820, height=500
+            self,
+            fg_color=THEME["bg_card"],
+            corner_radius=28,
+            width=880,
+            height=560,
+            border_width=1,
+            border_color=THEME["border"],
         )
         card.place(relx=0.5, rely=0.5, anchor="center")
         card.pack_propagate(False)
 
-        # ── LEFT PANEL ───────────────────────────────────
-        left = ctk.CTkFrame(card, fg_color="#FFFFFF", width=450)
+        left = ctk.CTkFrame(card, fg_color=THEME["bg_card"], width=500)
         left.pack(side="left", fill="both")
         left.pack_propagate(False)
 
-        # ── RIGHT PANEL ──────────────────────────────────
-        right = ctk.CTkFrame(card, fg_color="#1a3a8a", width=370)
-        right.pack(side="right", fill="both", expand=True)
+        right = ctk.CTkFrame(
+            card,
+            fg_color=THEME["sidebar"],
+            width=380,
+            corner_radius=24,
+        )
+        right.pack(side="right", fill="both", expand=True, padx=(0, 8), pady=8)
         right.pack_propagate(False)
 
-        canvas = tk.Canvas(right, bg="#1a3a8a", highlightthickness=0)
+        canvas = tk.Canvas(
+            right,
+            bg=THEME["sidebar"],
+            highlightthickness=0,
+            bd=0,
+        )
         canvas.pack(fill="both", expand=True)
-        canvas.bind("<Configure>",
-                    lambda e: self._draw_right(canvas, e.width, e.height))
+        canvas.bind(
+            "<Configure>",
+            lambda event: self._draw_right(canvas, event.width, event.height),
+        )
 
-        # ── LOGO ─────────────────────────────────────────
         logo_row = ctk.CTkFrame(left, fg_color="transparent")
-        logo_row.pack(anchor="w", padx=44, pady=(44, 0))
+        logo_row.pack(anchor="w", padx=52, pady=(52, 0))
 
         logo_path = os.path.join("assets", "logo.png")
         if os.path.exists(logo_path):
             try:
                 img = Image.open(logo_path).resize((38, 38), Image.LANCZOS)
                 self._logo_img = ctk.CTkImage(
-                    light_image=img, dark_image=img, size=(38, 38)
+                    light_image=img,
+                    dark_image=img,
+                    size=(38, 38),
                 )
-                ctk.CTkLabel(logo_row, image=self._logo_img, text="").pack(side="left")
+                ctk.CTkLabel(logo_row, image=self._logo_img, text="").pack(
+                    side="left"
+                )
             except Exception:
                 self._logo_fallback(logo_row)
         else:
             self._logo_fallback(logo_row)
 
         ctk.CTkLabel(
-            logo_row, text="ChurchTrack",
-            font=("Segoe UI", 20, "bold"),
-            text_color="#0a3b8e"
-        ).pack(side="left", padx=(10, 0))
-
-        # ── TITLE ────────────────────────────────────────
-        ctk.CTkLabel(
-            left, text="WELCOME BACK!",
-            font=("Georgia", 24, "bold"),
-            text_color="#0a3b8e"
-        ).pack(anchor="w", padx=44, pady=(45, 0))
+            logo_row,
+            text="ChurchTrack",
+            font=(MODERN_THEME["font_family"], 21, "bold"),
+            text_color=THEME["text_main"],
+        ).pack(side="left", padx=(12, 0))
 
         ctk.CTkLabel(
-            left, text="Please sign in to continue.",
-            font=("Segoe UI", 11), text_color="#333333"
-        ).pack(anchor="w", padx=44, pady=(2, 25))
-
-        # ── USERNAME ─────────────────────────────────────
-        user_frame = ctk.CTkFrame(
-            left, fg_color="#F5F7FA", corner_radius=30
-        )
-        user_frame.pack(fill="x", padx=44, pady=(0, 12))
+            left,
+            text="Welcome back",
+            font=(MODERN_THEME["font_family"], 30, "bold"),
+            text_color=THEME["text_main"],
+        ).pack(anchor="w", padx=52, pady=(54, 0))
 
         ctk.CTkLabel(
-            user_frame, text="👤",
-            font=("Arial", 14), text_color="#555555"
+            left,
+            text="Sign in to manage donations, reports, events, and church operations.",
+            font=(MODERN_THEME["font_family"], 12),
+            text_color=THEME["text_sub"],
+            wraplength=360,
+            justify="left",
+        ).pack(anchor="w", padx=52, pady=(6, 30))
+
+        user_frame = self._field_frame(left)
+        user_frame.pack(fill="x", padx=52, pady=(0, 14))
+
+        ctk.CTkLabel(
+            user_frame,
+            text="👤",
+            font=(MODERN_THEME["font_family"], 14),
+            text_color=THEME["text_sub"],
         ).pack(side="left", padx=(18, 8), pady=12)
 
         self.username_entry = ctk.CTkEntry(
             user_frame,
             placeholder_text="Username",
-            height=38, border_width=0,
-            fg_color="#F5F7FA",
-            text_color="#333333",
-            placeholder_text_color="#888888",
-            font=("Segoe UI", 12)
+            height=42,
+            border_width=0,
+            fg_color=THEME["input"],
+            text_color=THEME["text_main"],
+            placeholder_text_color=THEME["text_muted"],
+            font=(MODERN_THEME["font_family"], 12),
         )
         self.username_entry.pack(
-            side="left", fill="x", expand=True,
-            padx=(0, 16), pady=6
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(0, 16),
+            pady=6,
         )
 
-        # ── PASSWORD ─────────────────────────────────────
-        pass_frame = ctk.CTkFrame(
-            left, fg_color="#F5F7FA", corner_radius=30
-        )
-        pass_frame.pack(fill="x", padx=44, pady=(0, 10))
+        pass_frame = self._field_frame(left)
+        pass_frame.pack(fill="x", padx=52, pady=(0, 12))
 
         ctk.CTkLabel(
-            pass_frame, text="🔒",
-            font=("Arial", 14), text_color="#555555"
+            pass_frame,
+            text="🔒",
+            font=(MODERN_THEME["font_family"], 14),
+            text_color=THEME["text_sub"],
         ).pack(side="left", padx=(18, 8), pady=12)
 
         self.password_entry = ctk.CTkEntry(
             pass_frame,
             placeholder_text="Password",
             show="•",
-            height=38, border_width=0,
-            fg_color="#F5F7FA",
-            text_color="#333333",
-            placeholder_text_color="#888888",
-            font=("Segoe UI", 12)
+            height=42,
+            border_width=0,
+            fg_color=THEME["input"],
+            text_color=THEME["text_main"],
+            placeholder_text_color=THEME["text_muted"],
+            font=(MODERN_THEME["font_family"], 12),
         )
         self.password_entry.pack(
-            side="left", fill="x", expand=True,
-            padx=(0, 4), pady=6
+            side="left",
+            fill="x",
+            expand=True,
+            padx=(0, 4),
+            pady=6,
         )
 
-        # Show / Hide password toggle button
         self._eye_btn = ctk.CTkButton(
             pass_frame,
             text="👁",
-            width=36, height=36,
-            corner_radius=18,
+            width=36,
+            height=36,
+            corner_radius=14,
             fg_color="transparent",
-            hover_color="#E8EDF5",
-            text_color="#888888",
-            font=("Arial", 14),
-            command=self._toggle_password
+            hover_color=MODERN_THEME["surface_hover"],
+            text_color=THEME["text_sub"],
+            font=(MODERN_THEME["font_family"], 14),
+            command=self._toggle_password,
         )
         self._eye_btn.pack(side="right", padx=(0, 10), pady=6)
 
-        # ── OPTIONS ROW ──────────────────────────────────
         options_row = ctk.CTkFrame(left, fg_color="transparent")
-        options_row.pack(fill="x", padx=44, pady=(2, 0))
+        options_row.pack(fill="x", padx=52, pady=(2, 0))
 
         self.remember_var = ctk.BooleanVar(value=False)
 
         self._remember_cb = ctk.CTkCheckBox(
             options_row,
-            text="Remember Me",
+            text="Remember me",
             variable=self.remember_var,
-            font=("Segoe UI", 11, "italic"),
-            text_color="#707070",
-            fg_color="#0a3b8e",
-            hover_color="#072b69",
-            checkmark_color="#FFFFFF",
-            border_color="#B0B0B0"
+            font=(MODERN_THEME["font_family"], 11),
+            text_color=THEME["text_sub"],
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_dark"],
+            checkmark_color=THEME["bg_card"],
+            border_color=THEME["border_strong"],
         )
         self._remember_cb.pack(side="left")
 
         forgot = ctk.CTkLabel(
             options_row,
-            text="Forgot Password?",
-            font=("Segoe UI", 11, "italic"),
-            text_color="#0a3b8e",
-            cursor="hand2"
+            text="Need help?",
+            font=(MODERN_THEME["font_family"], 11),
+            text_color=THEME["primary"],
+            cursor="hand2",
         )
         forgot.pack(side="right")
-        forgot.bind("<Enter>", lambda e: forgot.configure(text_color="#072b69"))
-        forgot.bind("<Leave>", lambda e: forgot.configure(text_color="#0a3b8e"))
-
-        # ── ERROR LABEL ──────────────────────────────────
-        self.error_label = ctk.CTkLabel(
-            left, text="",
-            font=("Segoe UI", 11),
-            text_color=THEME["danger"]
+        forgot.bind(
+            "<Enter>",
+            lambda event: forgot.configure(text_color=THEME["primary_dark"]),
         )
-        self.error_label.pack(pady=(8, 0))
+        forgot.bind(
+            "<Leave>",
+            lambda event: forgot.configure(text_color=THEME["primary"]),
+        )
 
-        # ── LOGIN BUTTON ─────────────────────────────────
+        self.error_label = ctk.CTkLabel(
+            left,
+            text="",
+            font=(MODERN_THEME["font_family"], 11),
+            text_color=THEME["danger"],
+        )
+        self.error_label.pack(pady=(10, 0))
+
         self.login_btn = ctk.CTkButton(
             left,
-            text="Log in",
-            font=("Segoe UI", 14, "bold"),
-            height=45, corner_radius=25,
-            fg_color="#0a3b8e",
-            hover_color="#06245c",
-            text_color="#FFFFFF",
-            command=self._attempt_login
+            text="Sign in",
+            font=(MODERN_THEME["font_family"], 14, "bold"),
+            height=48,
+            corner_radius=16,
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_dark"],
+            text_color=THEME["bg_card"],
+            command=self._attempt_login,
         )
-        self.login_btn.pack(fill="x", padx=44, pady=(10, 0))
+        self.login_btn.pack(fill="x", padx=52, pady=(12, 0))
 
-        self.login_btn.bind("<Enter>",
-            lambda e: self.login_btn.configure(fg_color="#06245c"))
-        self.login_btn.bind("<Leave>",
-            lambda e: self.login_btn.configure(fg_color="#0a3b8e"))
+        ctk.CTkLabel(
+            left,
+            text="Minimal church operations platform • local desktop system",
+            font=(MODERN_THEME["font_family"], 10),
+            text_color=THEME["text_muted"],
+        ).pack(anchor="w", padx=52, pady=(24, 0))
 
-        # ── KEY BINDS ────────────────────────────────────
-        self.username_entry.bind("<Return>", lambda e: self._attempt_login())
-        self.password_entry.bind("<Return>", lambda e: self._attempt_login())
+        self.username_entry.bind("<Return>", lambda event: self._attempt_login())
+        self.password_entry.bind("<Return>", lambda event: self._attempt_login())
         self.username_entry.focus()
 
-        # ── PRE-FILL if Remember Me was saved ────────────
         remembered = _load_remembered()
         if remembered.get("username") and remembered.get("password"):
             self.username_entry.insert(0, remembered["username"])
             self.password_entry.insert(0, remembered["password"])
             self.remember_var.set(True)
 
-    # ─── TOGGLE PASSWORD VISIBILITY ───────────────────
+    def _field_frame(self, parent):
+        return ctk.CTkFrame(
+            parent,
+            fg_color=THEME["input"],
+            corner_radius=22,
+            border_width=1,
+            border_color=THEME["border"],
+        )
 
     def _toggle_password(self):
         self._show_pw = not self._show_pw
+
         if self._show_pw:
             self.password_entry.configure(show="")
             self._eye_btn.configure(text="🙈")
@@ -253,62 +296,139 @@ class LoginFrame(ctk.CTkFrame):
             self.password_entry.configure(show="•")
             self._eye_btn.configure(text="👁")
 
-    # ─── HELPERS ──────────────────────────────────────
-
     def _logo_fallback(self, parent):
         placeholder = ctk.CTkFrame(
-            parent, width=38, height=38,
-            fg_color="#E8EDF5", corner_radius=8
+            parent,
+            width=38,
+            height=38,
+            fg_color=MODERN_THEME["primary_soft"],
+            corner_radius=16,
         )
         placeholder.pack(side="left")
         placeholder.pack_propagate(False)
+
         ctk.CTkLabel(
-            placeholder, text="⛪",
-            font=("Arial", 20), text_color="#1a2a4a"
+            placeholder,
+            text="⛪",
+            font=(MODERN_THEME["font_family"], 19),
+            text_color=THEME["primary"],
         ).place(relx=0.5, rely=0.5, anchor="center")
 
     def _draw_background(self):
         bg_path = os.path.join("assets", "bg.png")
+
         if os.path.exists(bg_path):
             try:
                 img = Image.open(bg_path)
-                sw = self.winfo_screenwidth()
-                sh = self.winfo_screenheight()
-                img = img.resize((sw, sh), Image.LANCZOS)
+                screen_w = self.winfo_screenwidth()
+                screen_h = self.winfo_screenheight()
+                img = img.resize((screen_w, screen_h), Image.LANCZOS)
                 self._bg_img = ImageTk.PhotoImage(img)
+
                 tk.Label(self, image=self._bg_img, bd=0).place(
-                    x=0, y=0, relwidth=1, relheight=1
+                    x=0,
+                    y=0,
+                    relwidth=1,
+                    relheight=1,
                 )
             except Exception:
-                pass
+                self.configure(fg_color=THEME["bg_main"])
+        else:
+            self.configure(fg_color=THEME["bg_main"])
 
-    def _draw_right(self, c, W, H):
-        c.delete("all")
-        c.create_rectangle(0, 0, W, H, fill="#1a3a8a", outline="")
+    def _draw_right(self, canvas, width, height):
+        canvas.delete("all")
 
-        shade_colors = [
-            "#2d5be3", "#1f4bc6",
-            "#2a56d6", "#1c43b5",
-            "#244fca", "#183da3",
-            "#2b58dc", "#1e46c2",
-        ]
-        shapes = [
-            [
-                (W*0.5, H*0.05), (W*0.75, H*0.22),
-                (W*0.75, H*0.55), (W*0.5, H*0.72),
-                (W*0.25, H*0.55), (W*0.25, H*0.22)
-            ],
-            [
-                (W*0.72, 0), (W*0.97, H*0.12),
-                (W*0.97, H*0.38), (W*0.72, H*0.5),
-                (W*0.47, H*0.38), (W*0.47, H*0.12)
-            ],
-        ]
-        for shape, color in zip(shapes, shade_colors):
-            flat = [coord for point in shape for coord in point]
-            c.create_polygon(flat, fill=color, outline="#3a5acc")
+        canvas.create_rectangle(
+            0,
+            0,
+            width,
+            height,
+            fill=THEME["sidebar"],
+            outline="",
+        )
 
-    # ─── LOGIN LOGIC ──────────────────────────────────
+        canvas.create_oval(
+            width * 0.46,
+            height * -0.10,
+            width * 1.20,
+            height * 0.50,
+            fill=THEME["sidebar_alt"],
+            outline="",
+        )
+
+        canvas.create_oval(
+            width * 0.52,
+            height * 0.42,
+            width * 1.20,
+            height * 1.18,
+            fill=THEME["primary_dark"],
+            outline="",
+        )
+
+        canvas.create_rectangle(
+            42,
+            42,
+            width - 42,
+            44,
+            fill=THEME["primary"],
+            outline="",
+        )
+
+        canvas.create_text(
+            42,
+            86,
+            anchor="w",
+            text="CHURCHTRACK",
+            font=(MODERN_THEME["font_family"], 11, "bold"),
+            fill=THEME["primary_soft"],
+        )
+
+        canvas.create_text(
+            42,
+            146,
+            anchor="w",
+            text="Focused tools for\nfaithful financial\nstewardship.",
+            font=(MODERN_THEME["font_family"], 26, "bold"),
+            fill=THEME["bg_card"],
+        )
+
+        canvas.create_text(
+            42,
+            292,
+            anchor="w",
+            text="Monitor donations, requests, reports,\nand daily church activity from one\nclean local workspace.",
+            font=(MODERN_THEME["font_family"], 12),
+            fill=THEME["border_strong"],
+        )
+
+        canvas.create_rectangle(
+            42,
+            height - 128,
+            width - 42,
+            height - 54,
+            fill=THEME["text_main"],
+            outline=THEME["border_strong"],
+            width=1,
+        )
+
+        canvas.create_text(
+            62,
+            height - 103,
+            anchor="w",
+            text="Modernized GUI",
+            font=(MODERN_THEME["font_family"], 12, "bold"),
+            fill=THEME["bg_card"],
+        )
+
+        canvas.create_text(
+            62,
+            height - 78,
+            anchor="w",
+            text="Minimal. readable. operational.",
+            font=(MODERN_THEME["font_family"], 11),
+            fill=THEME["text_muted"],
+        )
 
     def _attempt_login(self):
         username = self.username_entry.get().strip()
@@ -325,7 +445,6 @@ class LoginFrame(ctk.CTkFrame):
 
     def _do_login(self, username, password):
         try:
-            # Handle Remember Me before calling on_login
             if self.remember_var.get():
                 _save_remembered(username, password)
             else:
@@ -333,8 +452,5 @@ class LoginFrame(ctk.CTkFrame):
 
             self.on_login(username, password)
         except Exception:
-            self.error_label.configure(
-                text="Invalid username or password."
-            )
-            self.login_btn.configure(state="normal", text="Log in")
-
+            self.error_label.configure(text="Invalid username or password.")
+            self.login_btn.configure(state="normal", text="Sign in")

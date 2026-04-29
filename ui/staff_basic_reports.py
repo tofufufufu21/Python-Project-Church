@@ -26,7 +26,7 @@ class StaffBasicReports(ctk.CTkFrame):
 
         ctk.CTkLabel(
             content, text="Basic Reports",
-            font=("Arial", 20, "bold"),
+            font=(THEME["font_family"], 20, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", pady=(0, 4))
 
@@ -34,7 +34,7 @@ class StaffBasicReports(ctk.CTkFrame):
             content,
             text="View this month's summary and "
                  "generate a PDF report.",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 16))
 
@@ -48,14 +48,14 @@ class StaffBasicReports(ctk.CTkFrame):
     def _build_summary(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1,
+            corner_radius=16, border_width=1,
             border_color=THEME["border"]
         )
         card.pack(fill="x", pady=(0, 20))
 
         ctk.CTkLabel(
             card, text="This Month's Summary",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -86,7 +86,7 @@ class StaffBasicReports(ctk.CTkFrame):
                 card,
                 text="No collections recorded "
                      "this month yet.",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w", padx=20, pady=(0, 16))
             return
@@ -98,13 +98,13 @@ class StaffBasicReports(ctk.CTkFrame):
             row.pack(fill="x", padx=20, pady=2)
             ctk.CTkLabel(
                 row, text=str(cat),
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_main"]
             ).pack(side="left")
             ctk.CTkLabel(
                 row,
                 text="₱ {:,.0f}".format(total),
-                font=("Arial", 12, "bold"),
+                font=(THEME["font_family"], 12, "bold"),
                 text_color=THEME["primary"]
             ).pack(side="right")
 
@@ -118,27 +118,27 @@ class StaffBasicReports(ctk.CTkFrame):
         total_row.pack(fill="x", padx=20, pady=(0, 16))
         ctk.CTkLabel(
             total_row, text="TOTAL THIS MONTH",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(side="left")
         ctk.CTkLabel(
             total_row,
             text="₱ {:,.0f}".format(month_total),
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["success"]
         ).pack(side="right")
 
     def _build_report_form(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1,
+            corner_radius=16, border_width=1,
             border_color=THEME["border"]
         )
         card.pack(fill="x")
 
         ctk.CTkLabel(
             card, text="Generate PDF Report",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -158,7 +158,7 @@ class StaffBasicReports(ctk.CTkFrame):
         )
         ctk.CTkLabel(
             start_col, text="Start Date",
-            font=("Arial", 11),
+            font=(THEME["font_family"], 11),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 4))
         self.start_entry = DatePickerEntry(
@@ -176,7 +176,7 @@ class StaffBasicReports(ctk.CTkFrame):
         )
         ctk.CTkLabel(
             end_col, text="End Date",
-            font=("Arial", 11),
+            font=(THEME["font_family"], 11),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", pady=(0, 4))
         self.end_entry = DatePickerEntry(
@@ -187,15 +187,15 @@ class StaffBasicReports(ctk.CTkFrame):
 
         self.report_status = ctk.CTkLabel(
             card, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.report_status.pack(pady=(12, 0))
 
         ctk.CTkButton(
             card, text="Generate Summary PDF",
-            font=("Arial", 13, "bold"), height=46,
-            corner_radius=10,
+            font=(THEME["font_family"], 13, "bold"), height=46,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._generate

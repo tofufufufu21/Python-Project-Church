@@ -152,45 +152,45 @@ class ChatbotWindow(ctk.CTkToplevel):
         ctk.CTkLabel(
             header,
             text="⛪  ChurchTrack AI Assistant",
-            font=("Arial", 15, "bold"),
-            text_color="#FFFFFF"
+            font=(THEME["font_family"], 15, "bold"),
+            text_color=THEME["text_main"]
         ).pack(side="left", padx=20, pady=14)
 
         ctk.CTkLabel(
             header,
             text="Free — Groq + Llama 3.3",
-            font=("Arial", 10),
+            font=(THEME["font_family"], 10),
             text_color=THEME["sidebar_sub"]
         ).pack(side="left")
 
         ctk.CTkButton(
             header, text="Clear",
-            font=("Arial", 11), width=60, height=28,
-            corner_radius=6,
+            font=(THEME["font_family"], 11), width=60, height=28,
+            corner_radius=14,
             fg_color=THEME["sidebar_hover"],
-            hover_color="#3A4A5E",
-            text_color="#FFFFFF",
+            hover_color=THEME["border_strong"],
+            text_color=THEME["text_main"],
             command=self._clear_chat
         ).pack(side="right", padx=10)
 
         # API key frame
         self.api_frame = ctk.CTkFrame(
-            self, fg_color="#FFF9C4",
+            self, fg_color=THEME["warning_soft"],
             corner_radius=0, border_width=1,
-            border_color="#FFC107"
+            border_color=THEME["warning"]
         )
 
         ctk.CTkLabel(
             self.api_frame,
             text="Enter your FREE Groq API Key to activate:",
-            font=("Arial", 11, "bold"),
+            font=(THEME["font_family"], 11, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=16, pady=(10, 2))
 
         ctk.CTkLabel(
             self.api_frame,
             text="Get your free key at console.groq.com (takes 2 minutes)",
-            font=("Arial", 10),
+            font=(THEME["font_family"], 10),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", padx=16, pady=(0, 6))
 
@@ -202,9 +202,9 @@ class ChatbotWindow(ctk.CTkToplevel):
         self.api_entry = ctk.CTkEntry(
             api_row,
             placeholder_text="gsk_...",
-            show="•", height=36, corner_radius=8,
+            show="•", height=36, corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FFFFFF",
+            fg_color=THEME["bg_card"],
             text_color=THEME["text_main"]
         )
         self.api_entry.pack(
@@ -213,9 +213,9 @@ class ChatbotWindow(ctk.CTkToplevel):
 
         ctk.CTkButton(
             api_row, text="Activate",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             width=80, height=36,
-            corner_radius=8,
+            corner_radius=16,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._save_api_key
@@ -241,13 +241,13 @@ class ChatbotWindow(ctk.CTkToplevel):
         ]:
             ctk.CTkButton(
                 sugg_frame, text=s,
-                font=("Arial", 9), height=24,
-                corner_radius=20,
+                font=(THEME["font_family"], 9), height=24,
+                corner_radius=22,
                 fg_color=THEME["bg_card"],
                 text_color=THEME["text_main"],
                 border_width=1,
                 border_color=THEME["border"],
-                hover_color="#E8EDF5",
+                hover_color=THEME["border"],
                 command=lambda q=s: self._quick_ask(q)
             ).pack(side="left", padx=2, pady=2)
 
@@ -262,11 +262,11 @@ class ChatbotWindow(ctk.CTkToplevel):
         self.input_entry = ctk.CTkEntry(
             input_frame,
             placeholder_text="Ask about your church finances...",
-            height=44, corner_radius=10,
+            height=44, corner_radius=14,
             border_color=THEME["border"],
-            fg_color="#FAFAFA",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
-            font=("Arial", 12)
+            font=(THEME["font_family"], 12)
         )
         self.input_entry.pack(
             side="left", fill="x", expand=True,
@@ -276,9 +276,9 @@ class ChatbotWindow(ctk.CTkToplevel):
 
         self.send_btn = ctk.CTkButton(
             input_frame, text="Send",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             width=70, height=44,
-            corner_radius=10,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._send
@@ -407,7 +407,7 @@ class ChatbotWindow(ctk.CTkToplevel):
             outer,
             fg_color=THEME["primary"] if is_user
             else THEME["bg_card"],
-            corner_radius=12,
+            corner_radius=16,
             border_width=0 if is_user else 1,
             border_color=THEME["border"]
         )
@@ -418,8 +418,8 @@ class ChatbotWindow(ctk.CTkToplevel):
 
         ctk.CTkLabel(
             bubble, text=text,
-            font=("Arial", 12),
-            text_color="#FFFFFF" if is_user
+            font=(THEME["font_family"], 12),
+            text_color=THEME["bg_card"] if is_user
             else THEME["text_main"],
             wraplength=360,
             justify="left"
@@ -441,7 +441,7 @@ class ChatbotWindow(ctk.CTkToplevel):
         ctk.CTkLabel(
             self.typing_frame,
             text="ChurchTrack AI is thinking...",
-            font=("Arial", 11),
+            font=(THEME["font_family"], 11),
             text_color=THEME["text_sub"]
         ).pack(side="left", pady=6)
 
@@ -469,9 +469,9 @@ class ChatbotButton(ctk.CTkButton):
         super().__init__(
             master,
             text="💬  Ask AI",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             height=38,
-            corner_radius=20,
+            corner_radius=22,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._open,
@@ -535,34 +535,34 @@ class ChatbotScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             chat_header,
             text="⛪  ChurchTrack AI Assistant",
-            font=("Arial", 16, "bold"),
+            font=(THEME["font_family"], 16, "bold"),
             text_color=THEME["text_main"]
         ).pack(side="left", padx=20, pady=14)
 
         ctk.CTkLabel(
             chat_header,
             text="Free — Groq + Llama 3.3",
-            font=("Arial", 10),
+            font=(THEME["font_family"], 10),
             text_color=THEME["text_sub"]
         ).pack(side="left", padx=(0, 16))
 
         ctk.CTkButton(
             chat_header, text="Clear Chat",
-            font=("Arial", 11), width=90, height=30,
-            corner_radius=6,
+            font=(THEME["font_family"], 11), width=90, height=30,
+            corner_radius=14,
             fg_color=THEME["bg_main"],
             text_color=THEME["text_main"],
             border_width=1,
             border_color=THEME["border"],
-            hover_color="#E8EDF5",
+            hover_color=THEME["border"],
             command=self._clear_chat
         ).pack(side="right", padx=16)
 
         # API key banner
         self.api_banner = ctk.CTkFrame(
-            right, fg_color="#FFF9C4",
+            right, fg_color=THEME["warning_soft"],
             corner_radius=0, border_width=1,
-            border_color="#FFC107"
+            border_color=THEME["warning"]
         )
 
         api_inner = ctk.CTkFrame(
@@ -573,7 +573,7 @@ class ChatbotScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             api_inner,
             text="Enter your FREE Groq API Key:",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             text_color=THEME["text_main"]
         ).pack(side="left")
 
@@ -581,18 +581,18 @@ class ChatbotScreen(ctk.CTkFrame):
             api_inner,
             placeholder_text="gsk_...",
             show="•", width=280, height=34,
-            corner_radius=8,
+            corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FFFFFF",
+            fg_color=THEME["bg_card"],
             text_color=THEME["text_main"]
         )
         self.api_entry.pack(side="left", padx=(10, 8))
 
         ctk.CTkButton(
             api_inner, text="Activate",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             width=80, height=34,
-            corner_radius=8,
+            corner_radius=16,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._save_api_key
@@ -601,7 +601,7 @@ class ChatbotScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             api_inner,
             text="  Get free key at console.groq.com",
-            font=("Arial", 10),
+            font=(THEME["font_family"], 10),
             text_color=THEME["text_sub"]
         ).pack(side="left")
 
@@ -620,13 +620,13 @@ class ChatbotScreen(ctk.CTkFrame):
         ]:
             ctk.CTkButton(
                 sugg_frame, text=s,
-                font=("Arial", 10), height=28,
-                corner_radius=20,
+                font=(THEME["font_family"], 10), height=28,
+                corner_radius=22,
                 fg_color=THEME["bg_card"],
                 text_color=THEME["text_main"],
                 border_width=1,
                 border_color=THEME["border"],
-                hover_color="#E8EDF5",
+                hover_color=THEME["border"],
                 command=lambda q=s: self._quick_ask(q)
             ).pack(side="left", padx=3, pady=4)
 
@@ -647,11 +647,11 @@ class ChatbotScreen(ctk.CTkFrame):
         self.input_entry = ctk.CTkEntry(
             input_bar,
             placeholder_text="Ask about your church finances...",
-            height=48, corner_radius=12,
+            height=48, corner_radius=16,
             border_color=THEME["border"],
-            fg_color="#FAFAFA",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
-            font=("Arial", 13)
+            font=(THEME["font_family"], 13)
         )
         self.input_entry.pack(
             side="left", fill="x", expand=True,
@@ -661,9 +661,9 @@ class ChatbotScreen(ctk.CTkFrame):
 
         self.send_btn = ctk.CTkButton(
             input_bar, text="Send",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             width=80, height=48,
-            corner_radius=12,
+            corner_radius=16,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._send
@@ -808,7 +808,7 @@ class ChatbotScreen(ctk.CTkFrame):
             outer,
             fg_color=THEME["primary"] if is_user
             else THEME["bg_card"],
-            corner_radius=12,
+            corner_radius=16,
             border_width=0 if is_user else 1,
             border_color=THEME["border"]
         )
@@ -819,8 +819,8 @@ class ChatbotScreen(ctk.CTkFrame):
 
         ctk.CTkLabel(
             bubble, text=text,
-            font=("Arial", 12),
-            text_color="#FFFFFF" if is_user
+            font=(THEME["font_family"], 12),
+            text_color=THEME["bg_card"] if is_user
             else THEME["text_main"],
             wraplength=700,
             justify="left"
@@ -842,7 +842,7 @@ class ChatbotScreen(ctk.CTkFrame):
         ctk.CTkLabel(
             self.typing_frame,
             text="ChurchTrack AI is thinking...",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_sub"]
         ).pack(side="left", pady=8)
 
