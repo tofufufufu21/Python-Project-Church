@@ -42,7 +42,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
         # ── Request Information ───────────────────────
         ctk.CTkLabel(
             form, text="Request Information",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=24, pady=(20, 12))
 
@@ -60,7 +60,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
         date_row.pack(fill="x", padx=24, pady=6)
         ctk.CTkLabel(
             date_row, text="Date:",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_main"],
             width=160, anchor="w"
         ).pack(side="left")
@@ -79,7 +79,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
         # ── Expense Details ───────────────────────────
         ctk.CTkLabel(
             form, text="Expense Details",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=24, pady=(16, 12))
 
@@ -91,7 +91,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
 
         ctk.CTkLabel(
             cat_row, text="Category",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_main"],
             width=160, anchor="w"
         ).pack(side="left")
@@ -111,14 +111,14 @@ class StaffExpenseRequest(ctk.CTkFrame):
             cat_inner,
             values=EXPENSE_CATEGORIES,
             variable=self.category_var,
-            fg_color="#F0F0F0",
-            button_color="#D0D0D0",
-            button_hover_color="#C0C0C0",
+            fg_color=THEME["input"],
+            button_color=THEME["border_strong"],
+            button_hover_color=THEME["text_muted"],
             text_color=THEME["text_main"],
-            dropdown_fg_color="#FFFFFF",
+            dropdown_fg_color=THEME["bg_card"],
             dropdown_text_color=THEME["text_main"],
             height=42,
-            corner_radius=20,
+            corner_radius=22,
             width=180
         ).pack(side="left")
 
@@ -126,7 +126,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
             cat_inner,
             text="(Utilities / Maintenance / Events "
                  "/ Supplies / Others)",
-            font=("Arial", 11),
+            font=(THEME["font_family"], 11),
             text_color=THEME["text_sub"]
         ).pack(side="left", padx=(12, 0))
 
@@ -146,35 +146,35 @@ class StaffExpenseRequest(ctk.CTkFrame):
         # ── Status message ────────────────────────────
         self.status_msg = ctk.CTkLabel(
             form, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.status_msg.pack(pady=(0, 4))
 
-        # ── Submit button — green ─────────────────────
+        # ── Submit button ─────────────────────────────
         ctk.CTkButton(
             form,
             text="Submit Request",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             height=52,
             corner_radius=26,
-            fg_color="#C8F5D8",
-            hover_color="#A8E8C0",
-            text_color="#1a7a3a",
+            fg_color=THEME["success"],
+            hover_color=THEME["success_hover"],
+            text_color=THEME["bg_card"],
             border_width=0,
             command=self._submit
         ).pack(fill="x", padx=24, pady=(4, 8))
 
-        # ── Clear button — pink ───────────────────────
+        # ── Clear button ──────────────────────────────
         ctk.CTkButton(
             form,
             text="Clear Form",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             height=52,
             corner_radius=26,
-            fg_color="#FFD6D6",
-            hover_color="#FFBBBB",
-            text_color="#cc0000",
+            fg_color=THEME["danger_soft"],
+            hover_color=THEME["border"],
+            text_color=THEME["danger"],
             border_width=0,
             command=self._clear_form
         ).pack(fill="x", padx=24, pady=(0, 20))
@@ -187,7 +187,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
 
         ctk.CTkLabel(
             row, text=label,
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_main"],
             width=160, anchor="w"
         ).pack(side="left")
@@ -195,12 +195,12 @@ class StaffExpenseRequest(ctk.CTkFrame):
         entry = ctk.CTkEntry(
             row,
             height=42,
-            corner_radius=20,
+            corner_radius=22,
             border_width=0,
-            fg_color="#F0F0F0",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
-            placeholder_text_color="#AAAAAA",
-            font=("Arial", 12)
+            placeholder_text_color=THEME["text_muted"],
+            font=(THEME["font_family"], 12)
         )
         if default:
             entry.insert(0, default)
@@ -219,7 +219,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
 
         ctk.CTkLabel(
             card, text="Request Status",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=24, pady=(20, 8))
 
@@ -242,7 +242,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
             ctk.CTkLabel(
                 self.status_scroll,
                 text="No expense requests submitted yet.",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_sub"]
             ).pack(pady=30)
             return
@@ -254,7 +254,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
         weights = [1, 2, 1, 3, 1]
 
         hdr = ctk.CTkFrame(
-            self.status_scroll, fg_color="#F8F9FA"
+            self.status_scroll, fg_color=THEME["bg_main"]
         )
         hdr.pack(fill="x")
         for i, (h, w) in enumerate(
@@ -263,7 +263,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
             hdr.grid_columnconfigure(i, weight=w)
             ctk.CTkLabel(
                 hdr, text=h,
-                font=("Arial", 11, "bold"),
+                font=(THEME["font_family"], 11, "bold"),
                 text_color=THEME["text_sub"],
                 anchor="w"
             ).grid(
@@ -277,9 +277,9 @@ class StaffExpenseRequest(ctk.CTkFrame):
             "REJECTED": THEME["danger"],
         }
         status_badges = {
-            "APPROVED": "#E8FFF0",
-            "PENDING":  "#FFF8E8",
-            "REJECTED": "#FDECEA",
+            "APPROVED": THEME["success_soft"],
+            "PENDING":  THEME["warning_soft"],
+            "REJECTED": THEME["danger_soft"],
         }
 
         for row_data in all_exp:
@@ -296,7 +296,7 @@ class StaffExpenseRequest(ctk.CTkFrame):
                 str(status), THEME["text_main"]
             )
             badge_bg = status_badges.get(
-                str(status), "#F0F0F0"
+                str(status), THEME["input"]
             )
 
             vals = [
@@ -324,18 +324,18 @@ class StaffExpenseRequest(ctk.CTkFrame):
                     badge = ctk.CTkFrame(
                         badge_cell,
                         fg_color=badge_bg,
-                        corner_radius=8
+                        corner_radius=16
                     )
                     badge.pack(anchor="w")
                     ctk.CTkLabel(
                         badge, text=val,
-                        font=("Arial", 10, "bold"),
+                        font=(THEME["font_family"], 10, "bold"),
                         text_color=sc
                     ).pack(padx=10, pady=4)
                 else:
                     ctk.CTkLabel(
                         row_frame, text=val,
-                        font=("Arial", 11),
+                        font=(THEME["font_family"], 11),
                         text_color=THEME["text_main"],
                         anchor="w"
                     ).grid(

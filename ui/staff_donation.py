@@ -4,7 +4,7 @@ import datetime
 import os
 from PIL import Image, ImageTk
 from ui.theme import THEME
-from ui.components import build_notification_bell
+from ui.components import build_notification_bell, build_screen_topbar
 
 # ─── UPDATED STAFF NAV (Mass Intentions removed) ───
 STAFF_NAV_LOCAL = [
@@ -62,11 +62,11 @@ class StaffDonationEntry(ctk.CTkFrame):
     # ══════════════════════════════════════════════════
 
     def _build_sidebar(self):
-        sb_outer = tk.Frame(self, width=220, bg="#1a3a8a")
+        sb_outer = tk.Frame(self, width=THEME["sidebar_width"], bg=THEME["sidebar"])
         sb_outer.pack(side="left", fill="y")
         sb_outer.pack_propagate(False)
 
-        grad = tk.Canvas(sb_outer, highlightthickness=0, bd=0, bg="#1a3a8a")
+        grad = tk.Canvas(sb_outer, highlightthickness=0, bd=0, bg=THEME["sidebar"])
         grad.place(x=0, y=0, relwidth=1, relheight=1)
 
         _last = [0, 0]
@@ -76,8 +76,8 @@ class StaffDonationEntry(ctk.CTkFrame):
             _last[0] = w; _last[1] = h
             grad.delete("grad")
             if w < 2 or h < 2: return
-            r1, g1, b1 = 0x1a, 0x3a, 0x8a
-            r2, g2, b2 = 0x0d, 0x1f, 0x5c
+            r1, g1, b1 = 0x0B, 0x10, 0x20
+            r2, g2, b2 = 0x11, 0x18, 0x27
             for i in range(0, max(h, 1), 4):
                 t = i / max(h, 1)
                 color = "#{:02x}{:02x}{:02x}".format(
@@ -104,7 +104,7 @@ class StaffDonationEntry(ctk.CTkFrame):
         else:
             self._logo_placeholder(logo_box)
 
-        ctk.CTkFrame(sidebar, fg_color="#3a5acc", height=1).pack(fill="x", padx=16, pady=(0, 10))
+        ctk.CTkFrame(sidebar, fg_color=THEME["border_strong"], height=1).pack(fill="x", padx=16, pady=(0, 10))
 
         # Nav items
         self._nav_btns = {}
@@ -114,13 +114,13 @@ class StaffDonationEntry(ctk.CTkFrame):
             btn = ctk.CTkButton(
                 sidebar,
                 text=icon + "  " + item,
-                fg_color="#2a52cc" if active else "transparent",
-                text_color="#FFFFFF",
-                hover_color="#2a4aaa",
+                fg_color=THEME["primary"] if active else "transparent",
+                text_color=THEME["text_on_primary"] if active else THEME["sidebar_sub"],
+                hover_color=THEME["sidebar_hover"],
                 anchor="w",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 height=42,
-                corner_radius=8,
+                corner_radius=16,
                 command=lambda i=item: self._navigate(i)
             )
             btn.pack(fill="x", padx=10, pady=2)
@@ -129,34 +129,44 @@ class StaffDonationEntry(ctk.CTkFrame):
         # ── Logout button at bottom ────────────────────
         ctk.CTkButton(
             sidebar, text="↩  Logout",
-            fg_color="transparent", text_color="#FF8888",
-            hover_color="#2a4aaa", anchor="w",
-            font=("Arial", 12), height=38, corner_radius=8,
+            fg_color="transparent", text_color=THEME["danger_soft"],
+            hover_color=THEME["sidebar_hover"], anchor="w",
+            font=(THEME["font_family"], 12), height=38, corner_radius=16,
             command=self.on_logout
         ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
 
         # Settings above logout
         ctk.CTkButton(
             sidebar, text="⚙  Settings",
-            fg_color="transparent", text_color="#AABBDD",
-            hover_color="#2a4aaa", anchor="w",
-            font=("Arial", 12), height=38, corner_radius=8
+            fg_color="transparent", text_color=THEME["text_muted"],
+            hover_color=THEME["sidebar_hover"], anchor="w",
+            font=(THEME["font_family"], 12), height=38, corner_radius=16
         ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
 
     def _logo_placeholder(self, parent):
         c = tk.Canvas(parent, width=100, height=100,
-                      highlightthickness=0, bg="#1a3a8a")
+                      highlightthickness=0, bg=THEME["sidebar"])
         c.pack()
-        c.create_oval(4, 4, 96, 96, fill="#FFFFFF", outline="#5a7acc", width=2)
-        c.create_text(50, 50, text="⛪", font=("Arial", 36), fill="#1a3a8a")
+        c.create_oval(4, 4, 96, 96, fill=THEME["bg_card"], outline=THEME["text_sub"], width=2)
+        c.create_text(50, 50, text="⛪", font=(THEME["font_family"], 36), fill=THEME["sidebar"])
 
     # ══════════════════════════════════════════════════
     # TOPBAR
     # ══════════════════════════════════════════════════
 
     def _build_topbar(self):
+        build_screen_topbar(
+            self.right,
+            "Staff Workspace",
+            "Record donations, submit requests, and review parish activity.",
+            db_manager=self.db,
+            role="Staff",
+            show_search=True,
+            search_placeholder="Search staff tools...",
+        )
+        return
         topbar = ctk.CTkFrame(
-            self.right, fg_color="#FFFFFF",
+            self.right, fg_color=THEME["bg_card"],
             corner_radius=0, border_width=1,
             border_color=THEME["border"]
         )
@@ -166,14 +176,14 @@ class StaffDonationEntry(ctk.CTkFrame):
         left.pack(side="left", padx=24, pady=14)
         ctk.CTkLabel(
             left, text="Welcome Back, Staff!",
-            font=("Arial", 20, "bold"),
-            text_color="#1a2a4a"
+            font=(THEME["font_family"], 20, "bold"),
+            text_color=THEME["text_main"]
         ).pack(anchor="w")
         ctk.CTkLabel(
             left,
             text="Record donations and service offerings with accuracy and integrity.",
-            font=("Arial", 10),
-            text_color="#888888"
+            font=(THEME["font_family"], 10),
+            text_color=THEME["text_sub"]
         ).pack(anchor="w")
 
         right = ctk.CTkFrame(topbar, fg_color="transparent")
@@ -198,20 +208,20 @@ class StaffDonationEntry(ctk.CTkFrame):
         # Logout button in topbar as well (quick access)
         ctk.CTkButton(
             right, text="↩  Logout",
-            font=("Arial", 11, "bold"),
+            font=(THEME["font_family"], 11, "bold"),
             width=90, height=34,
-            corner_radius=8,
-            fg_color="#FF4D4D",
-            hover_color="#cc0000",
-            text_color="#FFFFFF",
+            corner_radius=16,
+            fg_color=THEME["danger"],
+            hover_color=THEME["danger_hover"],
+            text_color=THEME["bg_card"],
             command=self.on_logout
         ).pack(side="right", padx=(0, 12))
 
     def _avatar_fallback(self, parent):
-        c = tk.Canvas(parent, width=40, height=40, bg="#FFFFFF", highlightthickness=0)
+        c = tk.Canvas(parent, width=40, height=40, bg=THEME["bg_card"], highlightthickness=0)
         c.pack(side="right", padx=(8, 0))
-        c.create_oval(2, 2, 38, 38, fill="#D0DCF0", outline="#AABBDD", width=1)
-        c.create_text(20, 20, text="👤", font=("Arial", 16), fill="#1a2a4a")
+        c.create_oval(2, 2, 38, 38, fill=THEME["border_strong"], outline=THEME["text_muted"], width=1)
+        c.create_text(20, 20, text="👤", font=(THEME["font_family"], 16), fill=THEME["text_main"])
 
     # ══════════════════════════════════════════════════
     # MAIN BUILD
@@ -230,7 +240,7 @@ class StaffDonationEntry(ctk.CTkFrame):
         sub_bar.pack(fill="x", padx=28, pady=(14, 4))
         ctk.CTkLabel(
             sub_bar, text="Donation Entry",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w")
 
@@ -257,7 +267,7 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         # ── LEFT: Donation Envelope Type ──────────────
         left_card = ctk.CTkFrame(
-            row, fg_color="#FFFFFF",
+            row, fg_color=THEME["bg_card"],
             corner_radius=14, border_width=1,
             border_color=THEME["border"]
         )
@@ -265,7 +275,7 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         ctk.CTkLabel(
             left_card, text="Donation Envelope Type",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(18, 10))
 
@@ -282,7 +292,7 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         # ── RIGHT: Service Type ────────────────────────
         right_card = ctk.CTkFrame(
-            row, fg_color="#FFFFFF",
+            row, fg_color=THEME["bg_card"],
             corner_radius=14, border_width=1,
             border_color=THEME["border"]
         )
@@ -290,13 +300,13 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         ctk.CTkLabel(
             right_card, text="Service type",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(18, 0))
 
         ctk.CTkLabel(
             right_card, text="(if applicable)",
-            font=("Arial", 10),
+            font=(THEME["font_family"], 10),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", padx=20, pady=(0, 8))
 
@@ -312,7 +322,7 @@ class StaffDonationEntry(ctk.CTkFrame):
         ctk.CTkLabel(right_card, text="").pack(pady=4)
 
     def _make_radio_row(self, parent, value, var, btn_dict, callback):
-        """Blue filled-circle radio button row (like the left card)."""
+        """Primary filled-circle radio button row."""
         row = ctk.CTkFrame(parent, fg_color="transparent", cursor="hand2")
         row.pack(fill="x", padx=20, pady=3)
 
@@ -320,23 +330,23 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         # Circle indicator (canvas-drawn)
         circle = tk.Canvas(row, width=22, height=22,
-                           highlightthickness=0, bg="#FFFFFF")
+                           highlightthickness=0, bg=THEME["bg_card"])
         circle.pack(side="left", padx=(0, 10))
 
         def draw_circle(selected):
             circle.delete("all")
             if selected:
-                circle.create_oval(1, 1, 21, 21, fill="#4F86F7", outline="#4F86F7")
-                circle.create_oval(6, 6, 16, 16, fill="#FFFFFF", outline="#FFFFFF")
+                circle.create_oval(1, 1, 21, 21, fill=THEME["primary"], outline=THEME["primary"])
+                circle.create_oval(6, 6, 16, 16, fill=THEME["bg_card"], outline=THEME["bg_card"])
             else:
                 circle.create_oval(1, 1, 21, 21,
-                                   fill="#FFFFFF", outline="#CCCCCC", width=2)
+                                   fill=THEME["bg_card"], outline=THEME["border"], width=2)
 
         draw_circle(is_selected)
         btn_dict[value] = (circle, draw_circle)
 
         label = ctk.CTkLabel(row, text=value,
-                             font=("Arial", 12), text_color=THEME["text_main"],
+                             font=(THEME["font_family"], 12), text_color=THEME["text_main"],
                              anchor="w", cursor="hand2")
         label.pack(side="left", fill="x", expand=True)
 
@@ -348,31 +358,31 @@ class StaffDonationEntry(ctk.CTkFrame):
         row.bind("<Button-1>", lambda e: on_click())
 
     def _make_toggle_row(self, parent, value, var, btn_dict, callback):
-        """Blue toggle switch row (like the right card)."""
+        """Primary toggle switch row."""
         row = ctk.CTkFrame(parent, fg_color="transparent", cursor="hand2")
         row.pack(fill="x", padx=20, pady=3)
 
         is_selected = var.get() == value
 
         label = ctk.CTkLabel(row, text=value,
-                             font=("Arial", 12), text_color=THEME["text_main"],
+                             font=(THEME["font_family"], 12), text_color=THEME["text_main"],
                              anchor="w", cursor="hand2")
         label.pack(side="left", fill="x", expand=True)
 
         # Toggle pill (canvas-drawn)
         toggle = tk.Canvas(row, width=40, height=22,
-                           highlightthickness=0, bg="#FFFFFF")
+                           highlightthickness=0, bg=THEME["bg_card"])
         toggle.pack(side="right", padx=(8, 0))
 
         def draw_toggle(selected):
             toggle.delete("all")
             if selected:
                 toggle.create_rounded_rect = _rounded_rect
-                _rounded_rect(toggle, 1, 3, 39, 19, radius=8, fill="#4F86F7", outline="#4F86F7")
-                toggle.create_oval(21, 4, 37, 18, fill="#FFFFFF", outline="#FFFFFF")
+                _rounded_rect(toggle, 1, 3, 39, 19, radius=8, fill=THEME["primary"], outline=THEME["primary"])
+                toggle.create_oval(21, 4, 37, 18, fill=THEME["bg_card"], outline=THEME["bg_card"])
             else:
-                _rounded_rect(toggle, 1, 3, 39, 19, radius=8, fill="#E0E0E0", outline="#CCCCCC")
-                toggle.create_oval(3, 4, 19, 18, fill="#FFFFFF", outline="#CCCCCC")
+                _rounded_rect(toggle, 1, 3, 39, 19, radius=8, fill=THEME["surface_hover"], outline=THEME["border"])
+                toggle.create_oval(3, 4, 19, 18, fill=THEME["bg_card"], outline=THEME["border"])
 
         draw_toggle(is_selected)
         btn_dict[value] = (toggle, draw_toggle)
@@ -400,7 +410,7 @@ class StaffDonationEntry(ctk.CTkFrame):
 
     def _build_entry_form(self):
         form = ctk.CTkFrame(
-            self.content, fg_color="#FFFFFF",
+            self.content, fg_color=THEME["bg_card"],
             corner_radius=14, border_width=1,
             border_color=THEME["border"]
         )
@@ -420,7 +430,7 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         ctk.CTkLabel(
             pm_row, text="Payment Method",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             text_color=THEME["text_main"],
             anchor="w", width=160
         ).pack(side="left")
@@ -430,16 +440,16 @@ class StaffDonationEntry(ctk.CTkFrame):
             pm_row,
             values=PAYMENT_METHODS,
             variable=self._payment_var,
-            fg_color="#F0F0F0",
-            button_color="#D0D0D0",
-            button_hover_color="#C0C0C0",
+            fg_color=THEME["input"],
+            button_color=THEME["border_strong"],
+            button_hover_color=THEME["text_muted"],
             text_color=THEME["text_main"],
-            dropdown_fg_color="#FFFFFF",
+            dropdown_fg_color=THEME["bg_card"],
             dropdown_text_color=THEME["text_main"],
-            dropdown_hover_color="#EEF2FF",
+            dropdown_hover_color=THEME["primary_soft"],
             height=40,
-            corner_radius=8,
-            font=("Arial", 12),
+            corner_radius=16,
+            font=(THEME["font_family"], 12),
             command=self._on_payment_change
         )
         pm_dropdown.pack(side="left", fill="x", expand=True)
@@ -450,19 +460,19 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         ctk.CTkLabel(
             self._ref_row, text="Ref.  No. (if Digital)",
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             text_color=THEME["text_main"],
             anchor="w", width=160
         ).pack(side="left")
 
         self._ref_entry = ctk.CTkEntry(
             self._ref_row,
-            height=40, corner_radius=8,
+            height=40, corner_radius=16,
             border_width=0,
-            fg_color="#F0F0F0",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
             placeholder_text="",
-            font=("Arial", 12)
+            font=(THEME["font_family"], 12)
         )
         self._ref_entry.pack(side="left", fill="x", expand=True)
         self._entries["ref_no"] = self._ref_entry
@@ -476,18 +486,18 @@ class StaffDonationEntry(ctk.CTkFrame):
 
         ctk.CTkLabel(
             row, text=label_text,
-            font=("Arial", 12, "bold"),
+            font=(THEME["font_family"], 12, "bold"),
             text_color=THEME["text_main"],
             anchor="w", width=160
         ).pack(side="left")
 
         entry = ctk.CTkEntry(
             row,
-            height=40, corner_radius=8,
+            height=40, corner_radius=16,
             border_width=0,
-            fg_color="#F0F0F0",
+            fg_color=THEME["input"],
             text_color=THEME["text_main"],
-            font=("Arial", 12)
+            font=(THEME["font_family"], 12)
         )
         entry.pack(side="left", fill="x", expand=True)
         self._entries[key] = entry
@@ -505,11 +515,11 @@ class StaffDonationEntry(ctk.CTkFrame):
         ctk.CTkButton(
             self.content,
             text="Save Entry",
-            font=("Arial", 13, "bold"),
-            height=48, corner_radius=10,
-            fg_color="#C8F0D0",
-            hover_color="#A8E0B8",
-            text_color="#1a3a1a",
+            font=(THEME["font_family"], 13, "bold"),
+            height=48, corner_radius=14,
+            fg_color=THEME["success"],
+            hover_color=THEME["success_hover"],
+            text_color=THEME["bg_card"],
             command=self._save_entry
         ).pack(fill="x", pady=(0, 8))
 
@@ -517,18 +527,18 @@ class StaffDonationEntry(ctk.CTkFrame):
         ctk.CTkButton(
             self.content,
             text="Clear Form",
-            font=("Arial", 13, "bold"),
-            height=48, corner_radius=10,
-            fg_color="#FADADD",
-            hover_color="#F5B8BE",
-            text_color="#3a1a1a",
+            font=(THEME["font_family"], 13, "bold"),
+            height=48, corner_radius=14,
+            fg_color=THEME["danger_soft"],
+            hover_color=THEME["border"],
+            text_color=THEME["danger"],
             command=self._clear_form
         ).pack(fill="x", pady=(0, 10))
 
         # Status label
         self._status_label = ctk.CTkLabel(
             self.content, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self._status_label.pack(pady=(0, 4))
@@ -558,18 +568,18 @@ class StaffDonationEntry(ctk.CTkFrame):
             # Outer triangle (red border)
             tri.create_polygon(
                 cx, 4, cx - 24, h - 6, cx + 24, h - 6,
-                fill="#FF4444", outline=""
+                fill=THEME["danger"], outline=""
             )
             # Inner triangle (white fill)
             tri.create_polygon(
                 cx, 10, cx - 19, h - 10, cx + 19, h - 10,
-                fill="#FFFFFF", outline=""
+                fill=THEME["bg_card"], outline=""
             )
             # Exclamation mark
             tri.create_rectangle(cx - 3, 18, cx + 3, 38,
-                                  fill="#FF4444", outline="")
+                                  fill=THEME["danger"], outline="")
             tri.create_rectangle(cx - 3, 42, cx + 3, 48,
-                                  fill="#FF4444", outline="")
+                                  fill=THEME["danger"], outline="")
 
         tri.bind("<Configure>", lambda e: draw_triangle())
         tri.after(50, draw_triangle)
@@ -578,7 +588,7 @@ class StaffDonationEntry(ctk.CTkFrame):
             warn_frame,
             text="Ensure all entries are correct before saving. "
                  "This record will be used for financial tracking and reporting.",
-            font=("Arial", 11),
+            font=(THEME["font_family"], 11),
             text_color=THEME["text_sub"],
             wraplength=500,
             justify="center"
@@ -660,7 +670,8 @@ class StaffDonationEntry(ctk.CTkFrame):
         # Update active button styling
         for item, btn in self._nav_btns.items():
             btn.configure(
-                fg_color="#2a52cc" if item == screen else "transparent"
+                fg_color=THEME["primary"] if item == screen else "transparent",
+                text_color=THEME["text_on_primary"] if item == screen else THEME["sidebar_sub"]
             )
 
         # Clear content area
@@ -701,7 +712,7 @@ class StaffDonationEntry(ctk.CTkFrame):
         sub_bar.pack(fill="x", padx=28, pady=(14, 4))
         ctk.CTkLabel(
             sub_bar, text="Donation Entry",
-            font=("Arial", 13, "bold"),
+            font=(THEME["font_family"], 13, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w")
 

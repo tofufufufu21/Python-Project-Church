@@ -1,60 +1,466 @@
-import customtkinter as ctk
-import tkinter as tk
 import datetime
-from ui.theme import THEME
+import os
+import tkinter as tk
+
+import customtkinter as ctk
+
+from ui.theme import (
+    THEME,
+    card_style,
+    input_style,
+    primary_button_style,
+    secondary_button_style,
+    font,
+)
 
 
 def get_liturgical_season():
     today = datetime.date.today()
     month = today.month
     if month == 12 and today.day < 25:
-        return "Advent", "#6A0DAD"
-    elif month == 12 or month == 1:
-        return "Christmas Season", "#FFD700"
-    elif month in (2, 3):
-        return "Lenten Season", "#800080"
-    elif month in (4, 5):
-        return "Easter Season", "#FFD700"
-    else:
-        return "Ordinary Time", "#008000"
+        return "Advent", THEME["accent_purple"]
+    if month == 12 or month == 1:
+        return "Christmas Season", THEME["warning"]
+    if month in (2, 3):
+        return "Lenten Season", THEME["accent_purple"]
+    if month in (4, 5):
+        return "Easter Season", THEME["success"]
+    return "Ordinary Time", THEME["primary"]
 
 
 NAV_ICONS = {
-    "Dashboard":            "⊞",
-    "Financial Analytics":  "📊",
-    "Event Management":     "📅",
-    "Expense Management":   "💰",
-    "Account Management":   "👤",
-    "Audit Logs":           "📋",
-    "Reports":              "📄",
-    "AI Assistant":         "🤖",
-    "Settings":             "⚙",
-    "Donation Entry":       "💵",
-    "Mass Intentions":      "🕊",
-    "Event Calendar":       "🗓",
-    "Expense Request":      "📝",
-    "Basic Reports":        "📑",
+    "Dashboard": "DB",
+    "Financial Analytics": "FA",
+    "Event Management": "EV",
+    "Expense Management": "EX",
+    "Account Management": "AC",
+    "Staff Control": "AC",
+    "Audit Logs": "LG",
+    "Reports": "RP",
+    "AI Assistant": "AI",
+    "Settings": "ST",
+    "Donation Entry": "DN",
+    "Mass Intentions": "MI",
+    "Event Calendar": "EC",
+    "Expense Request": "ER",
+    "Basic Reports": "BR",
 }
 
 
-# ─────────────────────────────────────────────────────────
-# NOTIFICATION BELL  (clickable, shows pending expenses)
-# ─────────────────────────────────────────────────────────
+ADMIN_NAV = [
+    "Dashboard",
+    "Financial Analytics",
+    "Event Management",
+    "Expense Management",
+    "Account Management",
+    "Audit Logs",
+    "Reports",
+    "AI Assistant",
+]
+
+
+STAFF_NAV = [
+    "Donation Entry",
+    "Event Calendar",
+    "Expense Request",
+    "Basic Reports",
+]
+
+
+def create_app_shell(parent):
+    shell = ctk.CTkFrame(parent, fg_color=THEME["bg_main"], corner_radius=0)
+    shell.pack(fill="both", expand=True)
+    return shell
+
+
+def _logo_placeholder(parent, compact=False):
+    for child in parent.winfo_children():
+        child.destroy()
+    size = 34 if compact else 38
+    ctk.CTkLabel(
+        parent,
+        text="CT",
+        font=font(size // 2, "bold"),
+        text_color=THEME["text_on_primary"],
+    ).place(relx=0.5, rely=0.5, anchor="center")
+
+
+def draw_vertical_gradient(canvas, c1, c2):
+    """Compatibility helper retained for older screens."""
+    canvas.delete("grad")
+    width = canvas.winfo_width()
+    height = canvas.winfo_height()
+    if width < 2 or height < 2:
+        return
+    canvas.create_rectangle(0, 0, width, height, fill=c1, outline="", tags="grad")
+
+
+def build_gradient_sidebar(parent):
+    """Compatibility wrapper for the dark solid sidebar shell."""
+    outer = tk.Frame(parent, width=THEME["sidebar_width"], bg=THEME["sidebar"])
+    outer.pack(side="left", fill="y")
+    outer.pack_propagate(False)
+
+    sidebar = ctk.CTkFrame(
+        outer,
+        fg_color=THEME["sidebar"],
+        corner_radius=0,
+        border_width=0,
+    )
+    sidebar.place(x=0, y=0, relwidth=1, relheight=1)
+    return outer, sidebar
+
+
+def build_sidebar(parent, nav_items, active_item, on_logout, on_navigate=None):
+    """Shared futuristic sidebar with compatible return values."""
+    _, sidebar = build_gradient_sidebar(parent)
+
+    brand = ctk.CTkFrame(sidebar, fg_color="transparent")
+    brand.pack(fill="x", padx=16, pady=(20, 16))
+
+    logo_box = ctk.CTkFrame(
+        brand,
+        fg_color=THEME["primary"],
+        corner_radius=18,
+        width=52,
+        height=52,
+        border_width=1,
+        border_color=THEME["border_active"],
+    )
+    logo_box.pack(side="left")
+    logo_box.pack_propagate(False)
+
+    try:
+        from PIL import Image
+
+        logo_path = os.path.join("assets", "parish_logo.png")
+        if os.path.exists(logo_path):
+            img = Image.open(logo_path).resize((38, 38), Image.LANCZOS)
+            logo_img = ctk.CTkImage(light_image=img, dark_image=img, size=(38, 38))
+            label = ctk.CTkLabel(logo_box, image=logo_img, text="")
+            label.image = logo_img
+            label.place(relx=0.5, rely=0.5, anchor="center")
+        else:
+            _logo_placeholder(logo_box)
+    except Exception:
+        _logo_placeholder(logo_box)
+
+    brand_text = ctk.CTkFrame(brand, fg_color="transparent")
+    brand_text.pack(side="left", fill="x", expand=True, padx=(12, 0))
+    ctk.CTkLabel(
+        brand_text,
+        text="ChurchTrack",
+        font=font(17, "bold"),
+        text_color=THEME["sidebar_text"],
+        anchor="w",
+    ).pack(anchor="w")
+    ctk.CTkLabel(
+        brand_text,
+        text="Dashboard OS",
+        font=font(10),
+        text_color=THEME["sidebar_sub"],
+        anchor="w",
+    ).pack(anchor="w", pady=(2, 0))
+
+    ctk.CTkFrame(sidebar, fg_color=THEME["border"], height=1).pack(
+        fill="x", padx=16, pady=(0, 14)
+    )
+
+    ctk.CTkLabel(
+        sidebar,
+        text="WORKSPACE",
+        font=font(10, "bold"),
+        text_color=THEME["text_muted"],
+        anchor="w",
+    ).pack(fill="x", padx=20, pady=(0, 8))
+
+    buttons = {}
+    for item in nav_items:
+        icon = NAV_ICONS.get(item, "")
+        is_active = item == active_item or (
+            item == "Account Management" and active_item == "Staff Control"
+        )
+        active_fg = THEME["primary"] if is_active else "transparent"
+        active_text = THEME["text_on_primary"] if is_active else THEME["sidebar_sub"]
+        active_border = THEME["border_active"] if is_active else THEME["sidebar"]
+        btn = ctk.CTkButton(
+            sidebar,
+            text=f"{icon:<2}  {item}" if icon else item,
+            fg_color=active_fg,
+            text_color=active_text,
+            hover_color=THEME["sidebar_hover"],
+            anchor="w",
+            font=font(12, "bold" if is_active else "normal"),
+            height=44,
+            corner_radius=16,
+            border_width=1,
+            border_color=active_border,
+            command=(lambda i=item: on_navigate(i)) if on_navigate else None,
+        )
+        btn.pack(fill="x", padx=12, pady=3)
+        buttons[item] = btn
+
+    bottom = ctk.CTkFrame(sidebar, fg_color="transparent")
+    bottom.pack(side="bottom", fill="x", padx=12, pady=(0, 14))
+
+    if on_navigate is not None:
+        ctk.CTkButton(
+            bottom,
+            text="ST  Settings",
+            fg_color="transparent",
+            text_color=THEME["sidebar_sub"],
+            hover_color=THEME["sidebar_hover"],
+            anchor="w",
+            font=font(12),
+            height=38,
+            corner_radius=16,
+            border_width=1,
+            border_color=THEME["sidebar"],
+            command=lambda: on_navigate("Settings"),
+        ).pack(fill="x", pady=(0, 4))
+
+    ctk.CTkButton(
+        bottom,
+        text="LO  Logout",
+        fg_color="transparent",
+        text_color=THEME["danger"],
+        hover_color=THEME["sidebar_hover"],
+        anchor="w",
+        font=font(12, "bold"),
+        height=38,
+        corner_radius=16,
+        border_width=1,
+        border_color=THEME["sidebar"],
+        command=on_logout,
+    ).pack(fill="x")
+
+    return sidebar, buttons
+
+
+def create_card(parent, title=None):
+    card = ctk.CTkFrame(parent, **card_style(THEME["radius_lg"]))
+    if title:
+        ctk.CTkLabel(
+            card,
+            text=title,
+            font=font(15, "bold"),
+            text_color=THEME["text_main"],
+            anchor="w",
+        ).pack(anchor="w", padx=THEME["card_pad"], pady=(18, 8))
+    return card
+
+
+def create_metric_card(parent, title, value, subtitle=None, icon=None, accent=None):
+    accent = accent or THEME["primary"]
+    card = ctk.CTkFrame(
+        parent,
+        fg_color=THEME["bg_card"],
+        corner_radius=THEME["radius_lg"],
+        border_width=1,
+        border_color=THEME["border"],
+        height=116,
+    )
+    card.pack_propagate(False)
+
+    head = ctk.CTkFrame(card, fg_color="transparent")
+    head.pack(fill="x", padx=18, pady=(16, 0))
+    if icon:
+        ctk.CTkLabel(
+            head,
+            text=icon,
+            font=font(11, "bold"),
+            text_color=THEME["text_on_primary"],
+            fg_color=accent,
+            corner_radius=11,
+            width=26,
+            height=22,
+        ).pack(side="right")
+    ctk.CTkLabel(
+        head,
+        text=title,
+        font=font(12, "bold"),
+        text_color=THEME["text_sub"],
+        anchor="w",
+    ).pack(side="left")
+
+    ctk.CTkLabel(
+        card,
+        text=str(value),
+        font=font(25, "bold"),
+        text_color=THEME["text_main"],
+        anchor="w",
+    ).pack(anchor="w", padx=18, pady=(8, 0))
+    if subtitle:
+        ctk.CTkLabel(
+            card,
+            text=subtitle,
+            font=font(11),
+            text_color=THEME["text_sub"],
+            anchor="w",
+        ).pack(anchor="w", padx=18, pady=(2, 14))
+
+    ctk.CTkFrame(card, fg_color=accent, width=4, corner_radius=2).place(
+        x=0, y=18, relheight=0.64
+    )
+    return card
+
+
+def create_section_header(parent, title, subtitle=None):
+    header = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(
+        header,
+        text=title,
+        font=font(28, "bold"),
+        text_color=THEME["text_main"],
+        anchor="w",
+    ).pack(anchor="w")
+    if subtitle:
+        ctk.CTkLabel(
+            header,
+            text=subtitle,
+            font=font(12),
+            text_color=THEME["text_sub"],
+            anchor="w",
+        ).pack(anchor="w", pady=(3, 0))
+    return header
+
+
+def create_search_entry(parent, placeholder):
+    box = ctk.CTkFrame(
+        parent,
+        fg_color=THEME["input"],
+        corner_radius=THEME["radius_lg"],
+        border_width=1,
+        border_color=THEME["border"],
+    )
+    ctk.CTkLabel(
+        box,
+        text="Search",
+        font=font(10, "bold"),
+        text_color=THEME["primary"],
+    ).pack(side="left", padx=(14, 8), pady=8)
+    entry = ctk.CTkEntry(
+        box,
+        placeholder_text=placeholder,
+        width=240,
+        height=34,
+        border_width=0,
+        fg_color=THEME["input"],
+        text_color=THEME["text_main"],
+        placeholder_text_color=THEME["text_muted"],
+        font=font(11),
+    )
+    entry.pack(side="left", padx=(0, 14), pady=5)
+    box.entry = entry
+    return box
+
+
+def create_primary_button(parent, text, command):
+    return ctk.CTkButton(
+        parent,
+        text=text,
+        command=command,
+        height=THEME["control_h"],
+        font=font(12, "bold"),
+        **primary_button_style(THEME["radius_md"]),
+    )
+
+
+def create_secondary_button(parent, text, command):
+    return ctk.CTkButton(
+        parent,
+        text=text,
+        command=command,
+        height=THEME["control_h"],
+        font=font(12, "bold"),
+        **secondary_button_style(THEME["radius_md"]),
+    )
+
+
+def create_table_container(parent):
+    outer = ctk.CTkFrame(
+        parent,
+        fg_color=THEME["bg_card"],
+        corner_radius=THEME["radius_lg"],
+        border_width=1,
+        border_color=THEME["border"],
+    )
+    return outer
+
+
+def style_chart(fig, ax):
+    fig.patch.set_facecolor(THEME["bg_card"])
+    axes = ax
+    if not isinstance(axes, (list, tuple)):
+        try:
+            axes = list(ax.flatten())
+        except Exception:
+            axes = [ax]
+    for axis in axes:
+        axis.set_facecolor(THEME["bg_card"])
+        axis.grid(True, color="#22314D", alpha=0.45, linewidth=0.7)
+        axis.tick_params(colors=THEME["text_sub"], labelsize=8)
+        axis.title.set_color(THEME["text_main"])
+        axis.xaxis.label.set_color(THEME["text_sub"])
+        axis.yaxis.label.set_color(THEME["text_sub"])
+        for side in ("top", "right"):
+            if side in axis.spines:
+                axis.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            if side in axis.spines:
+                axis.spines[side].set_color(THEME["border"])
+        legend = axis.get_legend()
+        if legend:
+            legend.get_frame().set_facecolor(THEME["bg_card"])
+            legend.get_frame().set_edgecolor(THEME["border"])
+            for text in legend.get_texts():
+                text.set_color(THEME["text_sub"])
+    return fig, ax
+
+
+def build_avatar(parent, initials="AD"):
+    avatar = ctk.CTkFrame(
+        parent,
+        fg_color=THEME["bg_panel"],
+        corner_radius=20,
+        width=40,
+        height=40,
+        border_width=1,
+        border_color=THEME["border"],
+    )
+    avatar.pack_propagate(False)
+    ctk.CTkLabel(
+        avatar,
+        text=initials,
+        font=font(11, "bold"),
+        text_color=THEME["primary"],
+    ).place(relx=0.5, rely=0.5, anchor="center")
+    return avatar
+
+
+def build_search_box(parent, placeholder="Search..."):
+    return create_search_entry(parent, placeholder)
+
 
 def build_notification_bell(parent, db_manager):
-    """
-    Clickable bell that shows a popup of pending expense
-    requests. Pass db_manager=None to render a static bell.
-    """
     bell_outer = ctk.CTkFrame(
-        parent, fg_color="#F3F6FB",
-        corner_radius=20, width=40, height=40
+        parent,
+        fg_color=THEME["bg_panel"],
+        corner_radius=20,
+        border_width=1,
+        border_color=THEME["border"],
+        width=40,
+        height=40,
     )
     bell_outer.pack_propagate(False)
 
     canvas = tk.Canvas(
-        bell_outer, width=40, height=40,
-        bg="#F3F6FB", highlightthickness=0
+        bell_outer,
+        width=40,
+        height=40,
+        bg=THEME["bg_panel"],
+        highlightthickness=0,
+        bd=0,
     )
     canvas.place(relx=0, rely=0, relwidth=1, relheight=1)
 
@@ -62,102 +468,100 @@ def build_notification_bell(parent, db_manager):
         if db_manager is None:
             return 0
         try:
-            conn   = db_manager._get_connection()
+            conn = db_manager._get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                "SELECT COUNT(*) FROM expenses WHERE status='PENDING'"
-            )
-            n = cursor.fetchone()[0]
+            cursor.execute("SELECT COUNT(*) FROM expenses WHERE status='PENDING'")
+            count = cursor.fetchone()[0]
             conn.close()
-            return n
+            return count
         except Exception:
             return 0
 
-    def _redraw():
+    def _redraw(bg=THEME["bg_panel"]):
         canvas.delete("all")
-        canvas.create_text(
-            20, 20, text="🔔",
-            font=("Arial", 16), fill="#1a2a4a"
-        )
+        canvas.configure(bg=bg)
+        canvas.create_oval(8, 8, 32, 32, fill=THEME["input"], outline=THEME["border"])
+        canvas.create_text(20, 20, text="N", font=font(11, "bold"), fill=THEME["primary"])
         count = _get_count()
         if count > 0:
             label = str(count) if count < 10 else "9+"
-            canvas.create_oval(24, 2, 38, 16, fill="#FF4D4D", outline="")
-            canvas.create_text(
-                31, 9, text=label,
-                font=("Arial", 7, "bold"), fill="white"
-            )
+            canvas.create_oval(24, 3, 38, 17, fill=THEME["danger"], outline="")
+            canvas.create_text(31, 10, text=label, font=font(7, "bold"), fill="#FFFFFF")
 
     _redraw()
 
     def _on_click(event=None):
-        if db_manager is None:
-            return
-        _show_notification_popup(bell_outer, db_manager, _redraw)
+        if db_manager is not None:
+            _show_notification_popup(bell_outer, db_manager, _redraw)
 
     canvas.configure(cursor="hand2")
     canvas.bind("<Button-1>", _on_click)
-    canvas.bind("<Enter>", lambda e: canvas.configure(bg="#E8EDF5"))
-    canvas.bind("<Leave>", lambda e: canvas.configure(bg="#F3F6FB"))
-
+    canvas.bind("<Enter>", lambda event: _redraw(THEME["sidebar_hover"]))
+    canvas.bind("<Leave>", lambda event: _redraw(THEME["bg_panel"]))
     return bell_outer
 
 
 def _show_notification_popup(anchor, db_manager, on_close_cb=None):
-    """Dropdown popup listing pending expense requests."""
     popup = tk.Toplevel(anchor)
     popup.overrideredirect(True)
-    popup.configure(bg="#FFFFFF")
+    popup.configure(bg=THEME["border"])
     popup.attributes("-topmost", True)
 
     anchor.update_idletasks()
-    x = anchor.winfo_rootx() - 260
-    y = anchor.winfo_rooty() + anchor.winfo_height() + 6
-    popup.geometry("320x10+{}+{}".format(x, y))
+    x = anchor.winfo_rootx() - 282
+    y = anchor.winfo_rooty() + anchor.winfo_height() + 10
+    popup.geometry(f"348x10+{x}+{y}")
 
-    outer = tk.Frame(popup, bg="#CCCCCC", bd=1)
-    outer.pack(fill="both", expand=True)
-    inner = tk.Frame(outer, bg="#FFFFFF")
+    inner = tk.Frame(popup, bg=THEME["bg_card"])
     inner.pack(fill="both", expand=True, padx=1, pady=1)
 
-    # Header
-    hdr = tk.Frame(inner, bg="#1a3a8a")
-    hdr.pack(fill="x")
+    header = tk.Frame(inner, bg=THEME["bg_card"])
+    header.pack(fill="x")
     tk.Label(
-        hdr, text="🔔  Notifications",
-        font=("Arial", 12, "bold"),
-        fg="#FFFFFF", bg="#1a3a8a"
-    ).pack(side="left", padx=14, pady=10)
+        header,
+        text="Notifications",
+        font=font(13, "bold"),
+        fg=THEME["text_main"],
+        bg=THEME["bg_card"],
+    ).pack(side="left", padx=16, pady=(14, 10))
 
     def _close():
-        popup.destroy()
+        if popup.winfo_exists():
+            popup.destroy()
         if on_close_cb:
             on_close_cb()
 
     tk.Button(
-        hdr, text="✕",
-        font=("Arial", 11, "bold"),
-        fg="#FFFFFF", bg="#1a3a8a",
-        relief="flat", bd=0, cursor="hand2",
-        activebackground="#2a52cc",
-        activeforeground="#FFFFFF",
-        command=_close
-    ).pack(side="right", padx=10)
+        header,
+        text="Close",
+        font=font(9, "bold"),
+        fg=THEME["text_sub"],
+        bg=THEME["bg_panel"],
+        relief="flat",
+        bd=0,
+        padx=10,
+        pady=4,
+        cursor="hand2",
+        activebackground=THEME["sidebar_hover"],
+        activeforeground=THEME["text_main"],
+        command=_close,
+    ).pack(side="right", padx=12, pady=(10, 8))
 
-    # Body
-    body = tk.Frame(inner, bg="#FFFFFF")
-    body.pack(fill="both", expand=True)
+    body = tk.Frame(inner, bg=THEME["bg_card"])
+    body.pack(fill="both", expand=True, padx=12)
 
     try:
-        conn   = db_manager._get_connection()
+        conn = db_manager._get_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT date, category, amount, reason
             FROM expenses
             WHERE status = 'PENDING'
             ORDER BY date DESC
             LIMIT 8
-        """)
+            """
+        )
         rows = cursor.fetchall()
         conn.close()
     except Exception:
@@ -166,386 +570,246 @@ def _show_notification_popup(anchor, db_manager, on_close_cb=None):
     if not rows:
         tk.Label(
             body,
-            text="✓  No pending notifications",
-            font=("Arial", 11),
-            fg="#888888", bg="#FFFFFF"
-        ).pack(pady=24, padx=16)
+            text="No pending notifications",
+            font=font(11),
+            fg=THEME["text_sub"],
+            bg=THEME["bg_card"],
+        ).pack(pady=24)
     else:
-        for i, (date, cat, amount, reason) in enumerate(rows):
-            bg = "#FAFAFA" if i % 2 == 0 else "#FFFFFF"
-            row_f = tk.Frame(body, bg=bg)
-            row_f.pack(fill="x")
-
-            tk.Frame(row_f, bg="#FFC107", width=4).pack(
-                side="left", fill="y"
-            )
-            info = tk.Frame(row_f, bg=bg)
-            info.pack(
-                side="left", fill="x", expand=True,
-                padx=10, pady=8
-            )
+        for date, category, amount, reason in rows:
+            row = tk.Frame(body, bg=THEME["bg_panel"])
+            row.pack(fill="x", pady=(0, 8))
+            tk.Frame(row, bg=THEME["warning"], width=4).pack(side="left", fill="y")
+            info = tk.Frame(row, bg=THEME["bg_panel"])
+            info.pack(side="left", fill="x", expand=True, padx=10, pady=8)
             tk.Label(
                 info,
-                text="💰 Pending — {}".format(cat),
-                font=("Arial", 10, "bold"),
-                fg="#333333", bg=bg, anchor="w"
+                text=f"Pending request: {category}",
+                font=font(10, "bold"),
+                fg=THEME["text_main"],
+                bg=THEME["bg_panel"],
+                anchor="w",
             ).pack(anchor="w")
             tk.Label(
                 info,
-                text="₱{:,.0f}  •  {}".format(amount, str(date)[:10]),
-                font=("Arial", 9),
-                fg="#888888", bg=bg, anchor="w"
+                text="P{:,.0f}  |  {}".format(amount, str(date)[:10]),
+                font=font(9),
+                fg=THEME["text_sub"],
+                bg=THEME["bg_panel"],
+                anchor="w",
             ).pack(anchor="w")
             if reason:
                 short = str(reason)[:44]
                 if len(str(reason)) > 44:
-                    short += "…"
+                    short += "..."
                 tk.Label(
-                    info, text=short,
-                    font=("Arial", 9, "italic"),
-                    fg="#AAAAAA", bg=bg, anchor="w"
+                    info,
+                    text=short,
+                    font=font(9),
+                    fg=THEME["text_muted"],
+                    bg=THEME["bg_panel"],
+                    anchor="w",
                 ).pack(anchor="w")
 
-            tk.Frame(body, bg="#EEEEEE", height=1).pack(fill="x")
-
-    # Footer
-    footer = tk.Frame(inner, bg="#F8F9FA")
-    footer.pack(fill="x")
+    footer = tk.Frame(inner, bg=THEME["bg_panel"])
+    footer.pack(fill="x", pady=(4, 0))
     tk.Label(
         footer,
-        text="Go to Expense Management to review",
-        font=("Arial", 9),
-        fg="#888888", bg="#F8F9FA"
-    ).pack(pady=6)
+        text="Review requests in Expense Management",
+        font=font(9),
+        fg=THEME["text_sub"],
+        bg=THEME["bg_panel"],
+    ).pack(pady=7)
 
-    # Set final height
     popup.update_idletasks()
-    h = min(inner.winfo_reqheight() + 4, 420)
-    popup.geometry("320x{}+{}+{}".format(h, x, y))
-
-    popup.bind("<FocusOut>", lambda e: _close())
+    height = min(inner.winfo_reqheight() + 4, 420)
+    popup.geometry(f"348x{height}+{x}+{y}")
+    popup.bind("<FocusOut>", lambda event: _close())
     popup.focus_set()
 
 
-# ─────────────────────────────────────────────────────────
-# SIDEBAR GRADIENT HELPERS
-# ─────────────────────────────────────────────────────────
-
-def draw_vertical_gradient(canvas, c1, c2):
-    canvas.delete("grad")
-    w = canvas.winfo_width()
-    h = canvas.winfo_height()
-    if w < 2 or h < 2:
-        return
-    r1 = int(c1[1:3], 16); g1 = int(c1[3:5], 16); b1 = int(c1[5:7], 16)
-    r2 = int(c2[1:3], 16); g2 = int(c2[3:5], 16); b2 = int(c2[5:7], 16)
-    band = 4
-    for i in range(0, h, band):
-        t     = i / max(h, 1)
-        r     = int(r1 + (r2 - r1) * t)
-        g     = int(g1 + (g2 - g1) * t)
-        b     = int(b1 + (b2 - b1) * t)
-        color = "#{:02x}{:02x}{:02x}".format(r, g, b)
-        canvas.create_rectangle(
-            0, i, w, i + band,
-            fill=color, outline="", tags="grad"
-        )
-
-
-def build_gradient_sidebar(parent):
-    outer = tk.Frame(parent, width=220, bg="#1a3a8a")
-    outer.pack(side="left", fill="y")
-    outer.pack_propagate(False)
-
-    grad_canvas = tk.Canvas(
-        outer, highlightthickness=0, bd=0, bg="#1a3a8a"
-    )
-    grad_canvas.place(x=0, y=0, relwidth=1, relheight=1)
-
-    _last_size = [0, 0]
-
-    def on_resize(event):
-        if (event.width == _last_size[0] and
-                event.height == _last_size[1]):
-            return
-        _last_size[0] = event.width
-        _last_size[1] = event.height
-        draw_vertical_gradient(grad_canvas, "#1a3a8a", "#0d1f5c")
-
-    grad_canvas.bind("<Configure>", on_resize)
-
-    sidebar = ctk.CTkFrame(
-        outer, fg_color="transparent", corner_radius=0
-    )
-    sidebar.place(x=0, y=0, relwidth=1, relheight=1)
-
-    return outer, sidebar
-
-
-# ─────────────────────────────────────────────────────────
-# SHARED SIDEBAR  (used by most admin screens)
-# ─────────────────────────────────────────────────────────
-
-def build_sidebar(parent, nav_items, active_item, on_logout, on_navigate=None):
-    """
-    Builds the gradient sidebar with nav buttons, a Settings
-    button, and a Logout button.
-
-    on_navigate — callable that accepts a screen name string.
-                  Optional; Settings button only appears when
-                  this is provided.
-    """
-    outer, sidebar = build_gradient_sidebar(parent)
-
-    # ── Parish logo ───────────────────────────────────
-    logo_box = ctk.CTkFrame(sidebar, fg_color="transparent")
-    logo_box.pack(pady=(24, 16))
-
-    import os
-    try:
-        from PIL import Image
-        logo_path = os.path.join("assets", "parish_logo.png")
-        if os.path.exists(logo_path):
-            img = Image.open(logo_path).resize((100, 100), Image.LANCZOS)
-            logo_img = ctk.CTkImage(light_image=img, dark_image=img, size=(100, 100))
-            lbl = ctk.CTkLabel(logo_box, image=logo_img, text="")
-            lbl.image = logo_img
-            lbl.pack()
-        else:
-            _logo_placeholder(logo_box)
-    except Exception:
-        _logo_placeholder(logo_box)
-
-    ctk.CTkFrame(
-        sidebar, fg_color="#3a5acc", height=1
-    ).pack(fill="x", padx=16, pady=(0, 10))
-
-    # ── Nav buttons ───────────────────────────────────
-    buttons = {}
-    for item in nav_items:
-        icon = NAV_ICONS.get(item, "●")
-        fg   = "#2a52cc" if item == active_item else "transparent"
-        btn  = ctk.CTkButton(
-            sidebar,
-            text=icon + "  " + item,
-            fg_color=fg,
-            text_color="#FFFFFF",
-            hover_color="#2a4aaa",
-            anchor="w",
-            font=("Arial", 12),
-            height=42,
-            corner_radius=8
-        )
-        btn.pack(fill="x", padx=10, pady=2)
-        buttons[item] = btn
-
-    # ── Bottom: Logout ────────────────────────────────
-    ctk.CTkButton(
-        sidebar, text="↩  Logout",
-        fg_color="transparent",
-        text_color="#FF8888",
-        hover_color="#2a4aaa",
-        anchor="w",
-        font=("Arial", 12),
-        height=38,
-        corner_radius=8,
-        command=on_logout
-    ).pack(side="bottom", fill="x", padx=10, pady=(0, 8))
-
-    # ── Bottom: Settings (sits above Logout) ──────────
-    if on_navigate is not None:
-        ctk.CTkButton(
-            sidebar, text="⚙  Settings",
-            fg_color="transparent",
-            text_color="#AABBDD",
-            hover_color="#2a4aaa",
-            anchor="w",
-            font=("Arial", 12),
-            height=38,
-            corner_radius=8,
-            command=lambda: on_navigate("Settings")
-        ).pack(side="bottom", fill="x", padx=10, pady=(0, 4))
-
-    return sidebar, buttons
-
-
-def _logo_placeholder(parent):
-    """Fallback church icon when parish_logo.png is missing."""
-    c = tk.Canvas(
-        parent, width=100, height=100,
-        highlightthickness=0, bg="#1a3a8a"
-    )
-    c.pack()
-    c.create_oval(4, 4, 96, 96, fill="#FFFFFF", outline="#5a7acc", width=2)
-    c.create_text(50, 50, text="⛪", font=("Arial", 36), fill="#1a3a8a")
-
-
-# ─────────────────────────────────────────────────────────
-# SHARED TOPBAR
-# ─────────────────────────────────────────────────────────
-
-def build_topbar(parent, role, db_manager=None):
-    """
-    Shared topbar used by screens that call build_sidebar.
-    Pass db_manager to enable the clickable notification bell.
-    """
+def build_screen_topbar(
+    parent,
+    title,
+    subtitle="",
+    db_manager=None,
+    role=None,
+    show_search=True,
+    search_placeholder="Search...",
+):
     topbar = ctk.CTkFrame(
-        parent, fg_color="#FFFFFF",
-        corner_radius=0, border_width=1,
-        border_color=THEME["border"]
+        parent,
+        fg_color=THEME["topbar"],
+        corner_radius=0,
+        border_width=1,
+        border_color=THEME["border"],
+        height=THEME["topbar_height"],
     )
     topbar.pack(fill="x")
+    topbar.pack_propagate(False)
 
-    season, color = get_liturgical_season()
+    left = ctk.CTkFrame(topbar, fg_color="transparent")
+    left.pack(side="left", fill="y", padx=24, pady=8)
+
     ctk.CTkLabel(
-        topbar,
-        text="● " + season,
-        font=("Arial", 12, "bold"),
-        text_color=color
-    ).pack(side="left", padx=20, pady=12)
+        left,
+        text=title,
+        font=font(20, "bold"),
+        text_color=THEME["text_main"],
+        anchor="w",
+    ).pack(anchor="w")
+    if subtitle:
+        ctk.CTkLabel(
+            left,
+            text=subtitle,
+            font=font(10),
+            text_color=THEME["text_sub"],
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 0))
 
-    clock_label = ctk.CTkLabel(
-        topbar, text="",
-        font=("Arial", 12),
-        text_color=THEME["text_sub"]
-    )
-    clock_label.pack(side="left", padx=(0, 20), pady=12)
+    right = ctk.CTkFrame(topbar, fg_color="transparent")
+    right.pack(side="right", padx=22, pady=10)
 
-    def update_clock():
-        now = datetime.datetime.now().strftime(
-            "%A, %B %d %Y   %I:%M %p"
+    if show_search:
+        create_search_entry(right, search_placeholder).pack(side="left", padx=(0, 10))
+
+    bell = build_notification_bell(right, db_manager)
+    bell.pack(side="left", padx=(0, 10))
+
+    if role:
+        pill = ctk.CTkFrame(
+            right,
+            fg_color=THEME["bg_panel"],
+            corner_radius=18,
+            border_width=1,
+            border_color=THEME["border"],
         )
-        clock_label.configure(text=now)
-        clock_label.after(60000, update_clock)
+        pill.pack(side="left", padx=(0, 10))
+        ctk.CTkLabel(
+            pill,
+            text=f"{role} Online",
+            font=font(11, "bold"),
+            text_color=THEME["success"],
+        ).pack(padx=12, pady=7)
 
-    update_clock()
-
-    ctk.CTkLabel(
-        topbar,
-        text=role.capitalize() + "  |  ● DB Online",
-        font=("Arial", 12),
-        text_color=THEME["success"]
-    ).pack(side="right", padx=20)
-
-    # Clickable notification bell
-    bell = build_notification_bell(topbar, db_manager)
-    bell.pack(side="right", padx=(0, 8), pady=8)
-
+    build_avatar(right, "AD" if role != "Staff" else "ST").pack(side="left")
     return topbar
 
 
-# ─────────────────────────────────────────────────────────
-# NAV LISTS
-# ─────────────────────────────────────────────────────────
+def build_topbar(parent, title, subtitle=None, db_manager=None):
+    """Required topbar builder with compatibility for old build_topbar(parent, role, db)."""
+    role = None
+    if subtitle is not None and not isinstance(subtitle, str):
+        db_manager = subtitle
+        subtitle = None
+    if isinstance(title, str) and title.lower() in ("admin", "staff"):
+        role = title.capitalize()
+        title = "ChurchTrack"
+        subtitle = "Secure parish operations dashboard"
+    return build_screen_topbar(
+        parent,
+        title,
+        subtitle or "",
+        db_manager=db_manager,
+        role=role,
+        show_search=True,
+        search_placeholder="Search workspace...",
+    )
 
-ADMIN_NAV = [
-    "Dashboard", "Financial Analytics",
-    "Event Management", "Expense Management",
-    "Account Management", "Audit Logs",
-    "Reports", "AI Assistant",
-]
 
-STAFF_NAV = [
-    "Donation Entry", "Mass Intentions",
-    "Event Calendar", "Expense Request",
-    "Basic Reports"
-]
+def modern_card(parent, **kwargs):
+    options = card_style(THEME["radius_lg"])
+    options.update(kwargs)
+    return ctk.CTkFrame(parent, **options)
 
 
-# ─────────────────────────────────────────────────────────
-# DATE PICKER COMPONENT
-# ─────────────────────────────────────────────────────────
+def stat_card(parent, value, label, sublabel="", accent=None, inverted=False):
+    card = create_metric_card(parent, label, value, sublabel, accent=accent or THEME["primary"])
+    if inverted:
+        card.configure(fg_color=accent or THEME["primary"], border_color=accent or THEME["primary"])
+        for child in card.winfo_children():
+            try:
+                child.configure(text_color=THEME["text_on_primary"])
+            except Exception:
+                pass
+    return card
+
 
 class DatePickerEntry(ctk.CTkFrame):
-    """
-    Reusable date picker with calendar popup.
-
-    Usage:
-        picker = DatePickerEntry(parent)
-        picker.pack(...)
-        date_str = picker.get()    # "YYYY-MM-DD"
-        picker.set("2024-01-15")   # set a date
-    """
+    """Reusable date picker that keeps the existing get/set/delete contract."""
 
     def __init__(self, master, initial_date=None, **kwargs):
-        super().__init__(master, fg_color="transparent")
+        super().__init__(master, fg_color="transparent", **kwargs)
         self._date = initial_date or datetime.date.today().isoformat()
         self._build()
 
     def _build(self):
         self.entry = ctk.CTkEntry(
             self,
-            height=38,
-            corner_radius=8,
-            border_color=THEME["border"],
-            fg_color="#FAFAFA",
-            text_color=THEME["text_main"],
-            font=("Arial", 13)
+            height=THEME["control_h"],
+            font=font(12),
+            **input_style(THEME["radius_md"]),
         )
         self.entry.pack(side="left", fill="x", expand=True)
         self.entry.insert(0, self._date)
 
         ctk.CTkButton(
             self,
-            text="📅",
-            width=38, height=38,
-            corner_radius=8,
-            fg_color=THEME["primary"],
-            hover_color=THEME["primary_dark"],
-            font=("Arial", 14),
-            command=self._open_picker
-        ).pack(side="left", padx=(4, 0))
+            text="Cal",
+            width=48,
+            height=THEME["control_h"],
+            font=font(11, "bold"),
+            **primary_button_style(THEME["radius_md"]),
+            command=self._open_picker,
+        ).pack(side="left", padx=(6, 0))
 
     def _open_picker(self):
         try:
             from tkcalendar import Calendar
         except ImportError:
             import tkinter.messagebox as mb
-            mb.showerror(
-                "Missing library",
-                "Run: pip install tkcalendar"
-            )
+
+            mb.showerror("Missing library", "Run: pip install tkcalendar")
             return
 
         try:
-            parts = self.entry.get().strip().split("-")
-            y = int(parts[0]); m = int(parts[1]); d = int(parts[2])
+            year, month, day = [int(part) for part in self.entry.get().strip().split("-")]
         except Exception:
             today = datetime.date.today()
-            y, m, d = today.year, today.month, today.day
+            year, month, day = today.year, today.month, today.day
 
         popup = tk.Toplevel(self)
         popup.title("Select Date")
         popup.resizable(False, False)
         popup.grab_set()
-        popup.configure(bg="#FFFFFF")
+        popup.configure(bg=THEME["bg_card"])
 
         self.update_idletasks()
-        wx = self.winfo_rootx()
-        wy = self.winfo_rooty() + self.winfo_height()
-        popup.geometry("+{}+{}".format(wx, wy))
+        popup.geometry(f"+{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height()}")
 
         cal = Calendar(
             popup,
             selectmode="day",
-            year=y, month=m, day=d,
+            year=year,
+            month=month,
+            day=day,
             date_pattern="yyyy-mm-dd",
-            background="#1a3a8a",
-            foreground="white",
-            headersbackground="#0d1f5c",
-            headersforeground="white",
-            selectbackground="#2a6dd9",
-            selectforeground="white",
-            normalbackground="white",
-            normalforeground="#1a2a4a",
-            weekendbackground="#F3F6FB",
-            weekendforeground="#1a2a4a",
-            othermonthbackground="#F8F9FA",
-            othermonthforeground="#AAAAAA",
-            bordercolor="#D0DCF0",
-            font=("Arial", 10)
+            background=THEME["sidebar"],
+            foreground=THEME["text_main"],
+            headersbackground=THEME["bg_panel"],
+            headersforeground=THEME["text_main"],
+            selectbackground=THEME["primary"],
+            selectforeground=THEME["text_on_primary"],
+            normalbackground=THEME["bg_card"],
+            normalforeground=THEME["text_main"],
+            weekendbackground=THEME["bg_panel"],
+            weekendforeground=THEME["text_main"],
+            othermonthbackground=THEME["bg_main"],
+            othermonthforeground=THEME["text_muted"],
+            bordercolor=THEME["border"],
+            font=font(10),
         )
-        cal.pack(padx=10, pady=(10, 6))
+        cal.pack(padx=12, pady=(12, 8))
 
         def select():
             selected = cal.get_date()
@@ -557,13 +821,11 @@ class DatePickerEntry(ctk.CTkFrame):
         ctk.CTkButton(
             popup,
             text="Select Date",
-            font=("Arial", 12, "bold"),
-            height=38,
-            corner_radius=8,
-            fg_color="#1a3a8a",
-            hover_color="#0d1f5c",
-            command=select
-        ).pack(pady=(0, 10), padx=10, fill="x")
+            font=font(12, "bold"),
+            height=THEME["control_h"],
+            **primary_button_style(THEME["radius_md"]),
+            command=select,
+        ).pack(pady=(0, 12), padx=12, fill="x")
 
     def get(self):
         return self.entry.get().strip()

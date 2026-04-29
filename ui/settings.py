@@ -4,7 +4,7 @@ import shutil
 import threading
 from tkinter import filedialog
 from ui.theme import THEME
-from ui.components import build_sidebar, build_topbar, ADMIN_NAV
+from ui.components import build_sidebar, build_screen_topbar, ADMIN_NAV
 
 
 class Settings(ctk.CTkFrame):
@@ -26,14 +26,22 @@ class Settings(ctk.CTkFrame):
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
-        build_topbar(right, "Admin", self.db)
+        build_screen_topbar(
+            right,
+            "Settings",
+            "Configure imports, parish profile, fees, and backups.",
+            db_manager=self.db,
+            role="Admin",
+            show_search=True,
+            search_placeholder="Search settings...",
+        )
 
         content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
         content.pack(fill="both", expand=True, padx=20, pady=20)
 
         ctk.CTkLabel(
-            content, text="Settings",
-            font=("Arial", 20, "bold"),
+            content, text="System Settings",
+            font=(THEME["font_family"], 28, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", pady=(0, 16))
 
@@ -45,13 +53,13 @@ class Settings(ctk.CTkFrame):
     def _build_import_card(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         card.pack(fill="x", pady=(0, 20))
 
         ctk.CTkLabel(
             card, text="Import Donations from Excel",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 4))
 
@@ -59,22 +67,22 @@ class Settings(ctk.CTkFrame):
             card,
             text="Select an Excel file with columns: date, donor_name, "
                  "category, amount.\nDuplicates are automatically skipped.",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_sub"],
             justify="left"
         ).pack(anchor="w", padx=20, pady=(0, 12))
 
         self.import_status = ctk.CTkLabel(
             card, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.import_status.pack(anchor="w", padx=20)
 
         ctk.CTkButton(
             card, text="Browse and Import Excel File",
-            font=("Arial", 13, "bold"), height=44,
-            corner_radius=10,
+            font=(THEME["font_family"], 13, "bold"), height=44,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=self._import_excel
@@ -118,13 +126,13 @@ class Settings(ctk.CTkFrame):
     def _build_profile_card(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         card.pack(fill="x", pady=(0, 20))
 
         ctk.CTkLabel(
             card, text="Parish Profile",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -138,14 +146,14 @@ class Settings(ctk.CTkFrame):
             row.pack(fill="x", padx=24, pady=6)
             ctk.CTkLabel(
                 row, text=label,
-                font=("Arial", 12, "bold"),
+                font=(THEME["font_family"], 12, "bold"),
                 text_color=THEME["text_main"],
                 anchor="w", width=160
             ).pack(side="left")
             entry = ctk.CTkEntry(
-                row, height=38, corner_radius=8,
+                row, height=38, corner_radius=16,
                 border_color=THEME["border"],
-                fg_color="#FAFAFA",
+                fg_color=THEME["input"],
                 text_color=THEME["text_main"]
             )
             entry.insert(0, default)
@@ -154,15 +162,15 @@ class Settings(ctk.CTkFrame):
 
         self.profile_status = ctk.CTkLabel(
             card, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.profile_status.pack(pady=(4, 0))
 
         ctk.CTkButton(
             card, text="Save Profile",
-            font=("Arial", 13, "bold"), height=44,
-            corner_radius=10,
+            font=(THEME["font_family"], 13, "bold"), height=44,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=lambda: self.profile_status.configure(
@@ -174,13 +182,13 @@ class Settings(ctk.CTkFrame):
     def _build_fees_card(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         card.pack(fill="x", pady=(0, 20))
 
         ctk.CTkLabel(
             card, text="Sacramental Fees",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
@@ -194,14 +202,14 @@ class Settings(ctk.CTkFrame):
             row.pack(fill="x", padx=24, pady=6)
             ctk.CTkLabel(
                 row, text=label,
-                font=("Arial", 12, "bold"),
+                font=(THEME["font_family"], 12, "bold"),
                 text_color=THEME["text_main"],
                 anchor="w", width=160
             ).pack(side="left")
             entry = ctk.CTkEntry(
-                row, height=38, corner_radius=8,
+                row, height=38, corner_radius=16,
                 border_color=THEME["border"],
-                fg_color="#FAFAFA",
+                fg_color=THEME["input"],
                 text_color=THEME["text_main"]
             )
             entry.insert(0, default)
@@ -210,15 +218,15 @@ class Settings(ctk.CTkFrame):
 
         self.fees_status = ctk.CTkLabel(
             card, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.fees_status.pack(pady=(4, 0))
 
         ctk.CTkButton(
             card, text="Save Fees",
-            font=("Arial", 13, "bold"), height=44,
-            corner_radius=10,
+            font=(THEME["font_family"], 13, "bold"), height=44,
+            corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
             command=lambda: self.fees_status.configure(
@@ -230,36 +238,36 @@ class Settings(ctk.CTkFrame):
     def _build_backup_card(self, parent):
         card = ctk.CTkFrame(
             parent, fg_color=THEME["bg_card"],
-            corner_radius=12, border_width=1, border_color=THEME["border"]
+            corner_radius=16, border_width=1, border_color=THEME["border"]
         )
         card.pack(fill="x")
 
         ctk.CTkLabel(
             card, text="Database Backup",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(16, 8))
 
         ctk.CTkLabel(
             card,
             text="Creates a copy of churchtrack.db with today's date.",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["text_sub"]
         ).pack(anchor="w", padx=20, pady=(0, 8))
 
         self.backup_status = ctk.CTkLabel(
             card, text="",
-            font=("Arial", 12),
+            font=(THEME["font_family"], 12),
             text_color=THEME["success"]
         )
         self.backup_status.pack(pady=(0, 4))
 
         ctk.CTkButton(
             card, text="Create Backup Now",
-            font=("Arial", 13, "bold"), height=44,
-            corner_radius=10,
+            font=(THEME["font_family"], 13, "bold"), height=44,
+            corner_radius=14,
             fg_color=THEME["success"],
-            hover_color="#1e7e34",
+            hover_color=THEME["success_hover"],
             command=self._create_backup
         ).pack(pady=(0, 16), padx=24, fill="x")
 

@@ -30,8 +30,11 @@ class StaffEventCalendar(ctk.CTkFrame):
 
         # Left — big calendar
         self.cal_outer = ctk.CTkFrame(
-            body, fg_color="#1a3a8a",
-            corner_radius=16
+            body,
+            fg_color=THEME["bg_card"],
+            corner_radius=16,
+            border_width=1,
+            border_color=THEME["border"],
         )
         self.cal_outer.grid(
             row=0, column=0,
@@ -69,15 +72,18 @@ class StaffEventCalendar(ctk.CTkFrame):
 
         # Year box
         yr_box = ctk.CTkFrame(
-            hdr, fg_color="#FFFFFF",
-            corner_radius=8, width=80, height=44
+            hdr,
+            fg_color=THEME["primary_soft"],
+            corner_radius=16,
+            width=80,
+            height=44,
         )
         yr_box.pack(side="left")
         yr_box.pack_propagate(False)
         ctk.CTkLabel(
             yr_box, text=str(year),
-            font=("Arial", 18, "bold"),
-            text_color="#1a3a8a"
+            font=(THEME["font_family"], 18, "bold"),
+            text_color=THEME["primary"]
         ).place(relx=0.5, rely=0.5, anchor="center")
 
         # Month label
@@ -85,8 +91,8 @@ class StaffEventCalendar(ctk.CTkFrame):
             hdr,
             text=datetime.date(year, month, 1)
             .strftime("%B").upper(),
-            font=("Arial", 28, "bold"),
-            text_color="#FFFFFF"
+            font=(THEME["font_family"], 28, "bold"),
+            text_color=THEME["text_main"]
         ).pack(side="right", padx=(0, 4))
 
         # ── Nav arrows ────────────────────────────────
@@ -98,29 +104,29 @@ class StaffEventCalendar(ctk.CTkFrame):
         ctk.CTkButton(
             nav, text="‹",
             width=36, height=36,
-            corner_radius=8,
-            fg_color="#2a52cc",
-            hover_color="#1a3aaa",
-            font=("Arial", 18, "bold"),
-            text_color="#FFFFFF",
+            corner_radius=16,
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            font=(THEME["font_family"], 18, "bold"),
+            text_color=THEME["bg_card"],
             command=self._prev_month
         ).pack(side="left")
 
         ctk.CTkButton(
             nav, text="›",
             width=36, height=36,
-            corner_radius=8,
-            fg_color="#2a52cc",
-            hover_color="#1a3aaa",
-            font=("Arial", 18, "bold"),
-            text_color="#FFFFFF",
+            corner_radius=16,
+            fg_color=THEME["primary"],
+            hover_color=THEME["primary_hover"],
+            font=(THEME["font_family"], 18, "bold"),
+            text_color=THEME["bg_card"],
             command=self._next_month
         ).pack(side="right")
 
         # ── Divider ───────────────────────────────────
         ctk.CTkFrame(
             self.cal_outer,
-            fg_color="#FFFFFF", height=1
+            fg_color=THEME["border"], height=1
         ).pack(fill="x", padx=20, pady=(0, 8))
 
         # ── Day name headers ──────────────────────────
@@ -135,8 +141,8 @@ class StaffEventCalendar(ctk.CTkFrame):
             days_hdr.grid_columnconfigure(i, weight=1)
             ctk.CTkLabel(
                 days_hdr, text=d,
-                font=("Arial", 10, "bold"),
-                text_color="#AACCFF"
+                font=(THEME["font_family"], 10, "bold"),
+                text_color=THEME["text_sub"]
             ).grid(
                 row=0, column=i,
                 sticky="ew", pady=6
@@ -188,8 +194,8 @@ class StaffEventCalendar(ctk.CTkFrame):
                 if day == 0:
                     ctk.CTkFrame(
                         cal_grid,
-                        fg_color="#3a5aaa",
-                        corner_radius=6,
+                        fg_color=THEME["surface"],
+                        corner_radius=14,
                         width=58, height=52
                     ).grid(
                         row=week_idx, column=day_idx,
@@ -207,19 +213,19 @@ class StaffEventCalendar(ctk.CTkFrame):
                 has_event = day in event_days
 
                 if is_today or is_selected:
-                    cell_bg = "#FFFFFF"
-                    txt_col = "#1a3a8a"
+                    cell_bg = THEME["primary"]
+                    txt_col = THEME["bg_card"]
                 elif has_event:
-                    cell_bg = "#FFD700"
-                    txt_col = "#1a3a8a"
+                    cell_bg = THEME["warning_soft"]
+                    txt_col = THEME["warning"]
                 else:
-                    cell_bg = "#5a8adc"
-                    txt_col = "#1a3a8a"
+                    cell_bg = THEME["surface"]
+                    txt_col = THEME["text_main"]
 
                 cell = ctk.CTkFrame(
                     cal_grid,
                     fg_color=cell_bg,
-                    corner_radius=6,
+                    corner_radius=14,
                     width=58, height=52
                 )
                 cell.grid(
@@ -231,7 +237,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                 ctk.CTkLabel(
                     cell,
                     text=str(day),
-                    font=("Arial", 14, "bold"),
+                    font=(THEME["font_family"], 14, "bold"),
                     text_color=txt_col
                 ).place(
                     relx=0.5, rely=0.5,
@@ -252,7 +258,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                 def on_enter(e, c=cell, bg=cell_bg,
                               sel=is_today or is_selected):
                     if not sel:
-                        c.configure(fg_color="#7ab0f5")
+                        c.configure(fg_color=THEME["surface_hover"])
 
                 def on_leave(e, c=cell, bg=cell_bg):
                     c.configure(fg_color=bg)
@@ -268,19 +274,19 @@ class StaffEventCalendar(ctk.CTkFrame):
         leg.pack(anchor="w", padx=16, pady=(0, 12))
 
         tk.Frame(
-            leg, bg="#FFD700", width=12, height=12
+            leg, bg=THEME["warning"], width=12, height=12
         ).pack(side="left")
         ctk.CTkLabel(
             leg, text="  Has Event",
-            font=("Arial", 9), text_color="#AACCFF"
+            font=(THEME["font_family"], 9), text_color=THEME["text_sub"]
         ).pack(side="left", padx=(0, 16))
 
         tk.Frame(
-            leg, bg="#FFFFFF", width=12, height=12
+            leg, bg=THEME["primary"], width=12, height=12
         ).pack(side="left")
         ctk.CTkLabel(
             leg, text="  Today",
-            font=("Arial", 9), text_color="#AACCFF"
+            font=(THEME["font_family"], 9), text_color=THEME["text_sub"]
         ).pack(side="left")
 
     def _prev_month(self):
@@ -320,7 +326,7 @@ class StaffEventCalendar(ctk.CTkFrame):
         ctk.CTkLabel(
             self.events_panel,
             text="Upcoming Events",
-            font=("Arial", 14, "bold"),
+            font=(THEME["font_family"], 14, "bold"),
             text_color=THEME["text_main"]
         ).pack(anchor="w", padx=20, pady=(20, 4))
 
@@ -386,8 +392,8 @@ class StaffEventCalendar(ctk.CTkFrame):
 
         for name, start_date, location in rows:
             card = ctk.CTkFrame(
-                scroll, fg_color="#F8F9FA",
-                corner_radius=10, border_width=1,
+                scroll, fg_color=THEME["bg_main"],
+                corner_radius=14, border_width=1,
                 border_color=THEME["border"]
             )
             card.pack(fill="x", pady=6, padx=4)
@@ -395,7 +401,7 @@ class StaffEventCalendar(ctk.CTkFrame):
             # Color stripe
             stripe = tk.Canvas(
                 card, width=5,
-                highlightthickness=0, bg="#F8F9FA"
+                highlightthickness=0, bg=THEME["bg_main"]
             )
             stripe.pack(
                 side="left", fill="y",
@@ -407,7 +413,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                     s.delete("all"),
                     s.create_rectangle(
                         0, 0, 5, e.height,
-                        fill="#1a3a8a", outline=""
+                        fill=THEME["sidebar"], outline=""
                     )
                 )
             )
@@ -423,45 +429,45 @@ class StaffEventCalendar(ctk.CTkFrame):
             # Event Name
             ctk.CTkLabel(
                 info, text="Event Name:",
-                font=("Arial", 10, "bold"),
+                font=(THEME["font_family"], 10, "bold"),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             ctk.CTkLabel(
                 info, text=str(name),
-                font=("Arial", 12, "bold"),
+                font=(THEME["font_family"], 12, "bold"),
                 text_color=THEME["text_main"]
             ).pack(anchor="w")
 
             ctk.CTkFrame(
-                info, fg_color="#EEEEEE", height=1
+                info, fg_color=THEME["border"], height=1
             ).pack(fill="x", pady=4)
 
             # Date & Time
             ctk.CTkLabel(
                 info, text="Date & Time:",
-                font=("Arial", 10, "bold"),
+                font=(THEME["font_family"], 10, "bold"),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             ctk.CTkLabel(
                 info, text=str(start_date),
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_main"]
             ).pack(anchor="w")
 
             ctk.CTkFrame(
-                info, fg_color="#EEEEEE", height=1
+                info, fg_color=THEME["border"], height=1
             ).pack(fill="x", pady=4)
 
             # Location
             ctk.CTkLabel(
                 info, text="Location:",
-                font=("Arial", 10, "bold"),
+                font=(THEME["font_family"], 10, "bold"),
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             ctk.CTkLabel(
                 info,
                 text=str(location) if location else "—",
-                font=("Arial", 12),
+                font=(THEME["font_family"], 12),
                 text_color=THEME["text_main"]
             ).pack(anchor="w")
 
@@ -483,13 +489,13 @@ class StaffEventCalendar(ctk.CTkFrame):
         for label, dash in fields:
             ctk.CTkLabel(
                 container, text=label,
-                font=("Arial", 12, "bold"),
+                font=(THEME["font_family"], 12, "bold"),
                 text_color=THEME["text_main"],
                 anchor="w"
             ).pack(anchor="w", pady=(8, 2))
             ctk.CTkLabel(
                 container, text=dash,
-                font=("Arial", 10),
+                font=(THEME["font_family"], 10),
                 text_color=THEME["text_sub"],
                 anchor="w"
             ).pack(anchor="w")
