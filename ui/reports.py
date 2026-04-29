@@ -1,332 +1,457 @@
-import customtkinter as ctk
-import threading
 import datetime
 import os
-from ui.theme import THEME
-from ui.components import build_sidebar, build_screen_topbar, ADMIN_NAV
+import threading
+
+import customtkinter as ctk
+
 from core.report_engine import ReportEngine
+from ui.theme import THEME, font, input_style, primary_button_style, secondary_button_style
+from ui.components import (
+    ADMIN_NAV,
+    DatePickerEntry,
+    build_screen_topbar,
+    build_sidebar,
+    create_labeled_entry,
+    create_labeled_option,
+    create_status_badge,
+    format_currency,
+)
+
+
+REPORT_TYPES = [
+    "Donation Report",
+    "Expense Report",
+    "Event Report",
+    "Financial Summary",
+    "Audit Report",
+    "Staff Activity Report",
+]
 
 
 class Reports(ctk.CTkFrame):
 
     def __init__(self, master, db_manager, on_navigate, on_logout):
         super().__init__(master, fg_color=THEME["bg_main"])
-        self.db          = db_manager
-        self.engine      = ReportEngine(db_manager)
+        self.db = db_manager
+        self.engine = ReportEngine(db_manager)
         self.on_navigate = on_navigate
-        self.on_logout   = on_logout
+        self.on_logout = on_logout
+        self.report_type = ctk.StringVar(value=REPORT_TYPES[0])
+        self.generated_role = ctk.StringVar(value="admin")
+        self.use_range = ctk.IntVar(value=1)
+        self.preview_rows = []
         self.pack(fill="both", expand=True)
         self._build()
+        self._generate_preview()
 
     def _build(self):
         self.sidebar, self.nav_btns = build_sidebar(
             self, ADMIN_NAV, "Reports", self.on_logout, self.on_navigate
         )
-        for item, btn in self.nav_btns.items():
-            btn.configure(command=lambda i=item: self.on_navigate(i))
 
         right = ctk.CTkFrame(self, fg_color=THEME["bg_main"])
         right.pack(side="right", fill="both", expand=True)
+
         build_screen_topbar(
             right,
             "Reports",
-            "Generate filtered PDF reports and review export history.",
+            "Generate filtered reports with preview, metadata, and export history.",
             db_manager=self.db,
             role="Admin",
             show_search=True,
             search_placeholder="Search reports...",
         )
 
-        content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
-        content.pack(fill="both", expand=True, padx=20, pady=20)
+        self.content = ctk.CTkScrollableFrame(right, fg_color=THEME["bg_main"])
+        self.content.pack(fill="both", expand=True, padx=24, pady=20)
 
-        ctk.CTkLabel(
-            content, text="Report Builder",
-            font=(THEME["font_family"], 28, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", pady=(0, 16))
+        self._build_builder()
+        self.preview_card = self._card(self.content)
+        self.history_card = self._card(self.content)
+        self._load_history()
 
-        # Parish name
-        parish_card = ctk.CTkFrame(
-            content, fg_color=THEME["bg_card"],
-            corner_radius=16, border_width=1, border_color=THEME["border"]
-        )
-        parish_card.pack(fill="x", pady=(0, 16))
-
-        ctk.CTkLabel(
-            parish_card, text="Parish Name for Report Header",
-            font=(THEME["font_family"], 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=20, pady=(16, 8))
-
-        self.parish_entry = ctk.CTkEntry(
-            parish_card, height=38, corner_radius=16,
+    def _card(self, parent):
+        card = ctk.CTkFrame(
+            parent,
+            fg_color=THEME["bg_card"],
+            corner_radius=THEME["radius_lg"],
+            border_width=1,
             border_color=THEME["border"],
-            fg_color=THEME["input"],
+        )
+        card.pack(fill="x", pady=(0, 16))
+        return card
+
+    def _build_builder(self):
+        card = self._card(self.content)
+        ctk.CTkLabel(
+            card,
+            text="Report Builder",
+            font=font(18, "bold"),
             text_color=THEME["text_main"],
-            placeholder_text="e.g. St. Joseph Parish"
-        )
-        self.parish_entry.insert(0, "St. Joseph Parish")
-        self.parish_entry.pack(fill="x", padx=20, pady=(0, 16))
+        ).pack(anchor="w", padx=20, pady=(18, 10))
 
-        # Date range
-        date_card = ctk.CTkFrame(
-            content, fg_color=THEME["bg_card"],
-            corner_radius=16, border_width=1, border_color=THEME["border"]
-        )
-        date_card.pack(fill="x", pady=(0, 16))
+        top = ctk.CTkFrame(card, fg_color="transparent")
+        top.pack(fill="x", padx=20, pady=(0, 12))
+        for col in range(3):
+            top.grid_columnconfigure(col, weight=1, uniform="report_top")
 
-        ctk.CTkLabel(
-            date_card, text="Select Date Range",
-            font=(THEME["font_family"], 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=20, pady=(16, 8))
+        parish = create_labeled_entry(top, "Parish Name", "Parish name", "St. Joseph Parish")
+        parish.grid(row=0, column=0, sticky="ew", padx=(0, 8))
+        self.parish_entry = parish.entry
 
-        date_row = ctk.CTkFrame(date_card, fg_color="transparent")
-        date_row.pack(fill="x", padx=20, pady=(0, 12))
-        date_row.grid_columnconfigure(0, weight=1)
-        date_row.grid_columnconfigure(1, weight=1)
+        create_labeled_option(
+            top,
+            "Report Type",
+            REPORT_TYPES,
+            variable=self.report_type,
+            command=lambda _v: self._generate_preview(),
+        ).grid(row=0, column=1, sticky="ew", padx=8)
 
-        start_col = ctk.CTkFrame(date_row, fg_color="transparent")
-        start_col.grid(row=0, column=0, sticky="ew", padx=(0, 10))
-        ctk.CTkLabel(
-            start_col, text="Start Date (YYYY-MM-DD)",
-            font=(THEME["font_family"], 11), text_color=THEME["text_sub"]
-        ).pack(anchor="w", pady=(0, 4))
-        self.start_entry = ctk.CTkEntry(
-            start_col, height=38, corner_radius=16,
-            border_color=THEME["border"],
-            fg_color=THEME["input"],
-            text_color=THEME["text_main"]
-        )
-        self.start_entry.insert(0, "2024-01-01")
-        self.start_entry.pack(fill="x")
+        generated = create_labeled_entry(top, "Generated By", "Username", "admin")
+        generated.grid(row=0, column=2, sticky="ew", padx=(8, 0))
+        self.generated_by_entry = generated.entry
 
-        end_col = ctk.CTkFrame(date_row, fg_color="transparent")
-        end_col.grid(row=0, column=1, sticky="ew", padx=(10, 0))
-        ctk.CTkLabel(
-            end_col, text="End Date (YYYY-MM-DD)",
-            font=(THEME["font_family"], 11), text_color=THEME["text_sub"]
-        ).pack(anchor="w", pady=(0, 4))
-        self.end_entry = ctk.CTkEntry(
-            end_col, height=38, corner_radius=16,
-            border_color=THEME["border"],
-            fg_color=THEME["input"],
-            text_color=THEME["text_main"]
-        )
-        self.end_entry.insert(0, "2024-12-31")
-        self.end_entry.pack(fill="x")
+        second = ctk.CTkFrame(card, fg_color="transparent")
+        second.pack(fill="x", padx=20, pady=(0, 14))
+        for col in range(4):
+            second.grid_columnconfigure(col, weight=1, uniform="report_second")
 
-        # Quick range buttons
-        today          = datetime.date.today()
-        first_of_month = today.replace(day=1).isoformat()
-        first_of_year  = today.replace(month=1, day=1).isoformat()
-        today_str      = today.isoformat()
+        create_labeled_option(
+            second,
+            "Role",
+            ["admin", "staff"],
+            variable=self.generated_role,
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
-        quick_row = ctk.CTkFrame(date_card, fg_color="transparent")
-        quick_row.pack(fill="x", padx=20, pady=(8, 16))
-
-        for label, start, end in [
-            ("This Month", first_of_month, today_str),
-            ("This Year",  first_of_year,  today_str),
-            ("All Time",   "2024-01-01",   today_str),
-        ]:
-            ctk.CTkButton(
-                quick_row, text=label,
-                font=(THEME["font_family"], 11), height=32, corner_radius=16,
-                fg_color=THEME["bg_main"],
-                text_color=THEME["text_main"],
-                border_width=1, border_color=THEME["border"],
-                hover_color=THEME["border"],
-                command=lambda s=start, e=end: self._set_range(s, e)
-            ).pack(side="left", padx=(0, 8))
-
-        # Report type
-        type_card = ctk.CTkFrame(
-            content, fg_color=THEME["bg_card"],
-            corner_radius=16, border_width=1, border_color=THEME["border"]
-        )
-        type_card.pack(fill="x", pady=(0, 16))
-
-        ctk.CTkLabel(
-            type_card, text="Report Type",
-            font=(THEME["font_family"], 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=20, pady=(16, 8))
-
-        self.report_type = ctk.StringVar(value="Summary")
-        type_row = ctk.CTkFrame(type_card, fg_color="transparent")
-        type_row.pack(fill="x", padx=20, pady=(0, 16))
-
-        for rtype, desc in [
-            ("Summary",
-             "One page — category totals, grand total, transaction list"),
-            ("Detailed",
-             "Full breakdown — all transactions, % of revenue, landscape"),
-        ]:
-            col = ctk.CTkFrame(type_row, fg_color="transparent")
-            col.pack(side="left", padx=(0, 20))
-            ctk.CTkRadioButton(
-                col, text=rtype,
-                variable=self.report_type, value=rtype,
-                font=(THEME["font_family"], 13, "bold"),
-                text_color=THEME["text_main"],
-                fg_color=THEME["primary"],
-                hover_color=THEME["primary_dark"]
-            ).pack(anchor="w")
-            ctk.CTkLabel(
-                col, text=desc,
-                font=(THEME["font_family"], 10),
-                text_color=THEME["text_sub"]
-            ).pack(anchor="w", padx=(24, 0))
-
-        # Status and generate button
-        self.status_label = ctk.CTkLabel(
-            content, text="",
-            font=(THEME["font_family"], 12),
-            text_color=THEME["success"]
-        )
-        self.status_label.pack(pady=(8, 0))
-
-        ctk.CTkButton(
-            content, text="Generate PDF Report",
-            font=(THEME["font_family"], 14, "bold"), height=52,
-            corner_radius=14,
+        range_toggle = ctk.CTkFrame(second, fg_color="transparent")
+        range_toggle.grid(row=0, column=1, sticky="ew", padx=8, pady=(23, 0))
+        ctk.CTkCheckBox(
+            range_toggle,
+            text="Use date range",
+            variable=self.use_range,
+            onvalue=1,
+            offvalue=0,
+            text_color=THEME["text_main"],
             fg_color=THEME["primary"],
-            hover_color=THEME["primary_dark"],
-            command=self._generate_report
-        ).pack(fill="x", pady=(8, 0))
+            hover_color=THEME["primary_hover"],
+            font=font(12),
+            command=self._generate_preview,
+        ).pack(anchor="w")
 
-        # Report history
-        history_card = ctk.CTkFrame(
-            content, fg_color=THEME["bg_card"],
-            corner_radius=16, border_width=1, border_color=THEME["border"]
+        today = datetime.date.today()
+        from_col = ctk.CTkFrame(second, fg_color="transparent")
+        from_col.grid(row=0, column=2, sticky="ew", padx=8)
+        ctk.CTkLabel(from_col, text="From Date", font=font(11, "bold"), text_color=THEME["text_sub"]).pack(anchor="w", pady=(0, 4))
+        self.from_date = DatePickerEntry(from_col, initial_date=today.replace(day=1).isoformat())
+        self.from_date.pack(fill="x")
+
+        to_col = ctk.CTkFrame(second, fg_color="transparent")
+        to_col.grid(row=0, column=3, sticky="ew", padx=(8, 0))
+        ctk.CTkLabel(to_col, text="To Date", font=font(11, "bold"), text_color=THEME["text_sub"]).pack(anchor="w", pady=(0, 4))
+        self.to_date = DatePickerEntry(to_col, initial_date=today.isoformat())
+        self.to_date.pack(fill="x")
+
+        self.status_label = ctk.CTkLabel(
+            card,
+            text="",
+            font=font(11),
+            text_color=THEME["success"],
         )
-        history_card.pack(fill="x", pady=(20, 0))
+        self.status_label.pack(anchor="w", padx=20)
+
+        actions = ctk.CTkFrame(card, fg_color="transparent")
+        actions.pack(fill="x", padx=20, pady=(10, 18))
+        ctk.CTkButton(
+            actions,
+            text="Preview Report",
+            width=150,
+            height=42,
+            font=font(12, "bold"),
+            command=self._generate_preview,
+            **secondary_button_style(THEME["radius_md"]),
+        ).pack(side="left")
+        ctk.CTkButton(
+            actions,
+            text="Export PDF",
+            width=150,
+            height=42,
+            font=font(12, "bold"),
+            command=self._export_report,
+            **primary_button_style(THEME["radius_md"]),
+        ).pack(side="left", padx=(10, 0))
+
+    def _date_range(self):
+        if not self.use_range.get():
+            return None, None
+        start = self.from_date.get().strip()
+        end = self.to_date.get().strip()
+        try:
+            datetime.datetime.strptime(start, "%Y-%m-%d")
+            datetime.datetime.strptime(end, "%Y-%m-%d")
+        except ValueError:
+            raise ValueError("Invalid date format. Use YYYY-MM-DD.")
+        if start > end:
+            raise ValueError("From date must be before to date.")
+        return start, end
+
+    def _filters_used(self, start, end):
+        return "Type: {}; Date Range: {} to {}; Generated By: {}; Role: {}".format(
+            self.report_type.get(),
+            start or "All records",
+            end or "All records",
+            self.generated_by_entry.get().strip() or "admin",
+            self.generated_role.get(),
+        )
+
+    def _generate_preview(self):
+        if not hasattr(self, "preview_card"):
+            return
+        for child in self.preview_card.winfo_children():
+            child.destroy()
+        try:
+            start, end = self._date_range()
+        except ValueError as error:
+            self.status_label.configure(text=str(error), text_color=THEME["danger"])
+            return
+
+        report_type = self.report_type.get()
+        self.status_label.configure(
+            text="Preview generated at " + datetime.datetime.now().strftime("%I:%M %p"),
+            text_color=THEME["success"],
+        )
 
         ctk.CTkLabel(
-            history_card, text="Generated Reports",
-            font=(THEME["font_family"], 13, "bold"),
-            text_color=THEME["text_main"]
-        ).pack(anchor="w", padx=20, pady=(16, 8))
+            self.preview_card,
+            text="Report Preview",
+            font=font(16, "bold"),
+            text_color=THEME["text_main"],
+        ).pack(anchor="w", padx=20, pady=(16, 4))
+        ctk.CTkLabel(
+            self.preview_card,
+            text=self._filters_used(start, end),
+            font=font(11),
+            text_color=THEME["text_sub"],
+            wraplength=980,
+            justify="left",
+        ).pack(anchor="w", padx=20, pady=(0, 12))
 
-        self.history_frame = ctk.CTkFrame(
-            history_card, fg_color="transparent"
+        if report_type == "Financial Summary":
+            self._preview_financial_summary(start, end)
+            return
+
+        rows = self.db.get_report_rows(report_type, start, end)
+        self.preview_rows = rows
+        headers, values = self._preview_model(report_type, rows)
+        self._table_header(self.preview_card, headers, [1] * len(headers))
+        if not values:
+            self._empty(self.preview_card, "No rows match the selected filters.")
+            return
+        for idx, row in enumerate(values[:12]):
+            self._table_row(self.preview_card, row, [1] * len(headers), idx)
+        if len(values) > 12:
+            ctk.CTkLabel(
+                self.preview_card,
+                text="Showing 12 of {} rows. Export includes all filtered records.".format(len(values)),
+                font=font(11),
+                text_color=THEME["text_sub"],
+            ).pack(anchor="w", padx=20, pady=(8, 14))
+
+    def _preview_financial_summary(self, start, end):
+        query_start = start or "0001-01-01"
+        query_end = end or "9999-12-31"
+        income = self.db.get_summary_by_range(query_start, query_end)
+        expenses = self.db.get_expense_summary_by_range(query_start, query_end)
+        total_income = sum(row[1] for row in income)
+        total_expenses = sum(row[1] for row in expenses)
+        rows = [
+            ["Total Donations", format_currency(total_income)],
+            ["Approved Expenses", format_currency(total_expenses)],
+            ["Net Balance", format_currency(total_income - total_expenses)],
+        ]
+        self._table_header(self.preview_card, ["Metric", "Amount"], [2, 1])
+        for idx, row in enumerate(rows):
+            self._table_row(self.preview_card, row, [2, 1], idx)
+
+    def _preview_model(self, report_type, rows):
+        if report_type == "Donation Report":
+            return (
+                ["Date", "Donor Entry", "Category", "Amount"],
+                [[r[0], r[1] or "Anonymous", r[2], format_currency(r[3])] for r in rows],
+            )
+        if report_type == "Expense Report":
+            return (
+                ["ID", "Date", "Category", "Amount", "Status"],
+                [[r[0], r[1], r[2], format_currency(r[3]), r[5]] for r in rows],
+            )
+        if report_type == "Event Report":
+            return (
+                ["Date", "Time", "Event", "Location", "Status"],
+                [[r[2], r[3], r[1], r[5] or "-", r[9]] for r in rows],
+            )
+        if report_type == "Audit Report":
+            return (
+                ["ID", "User", "Action", "Date/Time", "Details"],
+                [[r[0], r[1], r[2], str(r[3]).replace("T", " ")[:19], r[4] or ""] for r in rows],
+            )
+        return (
+            ["Staff", "Action", "Affected Record", "Date/Time", "Status"],
+            [[r[1], r[2], r[3] or "", str(r[4]).replace("T", " ")[:19], r[5]] for r in rows],
         )
-        self.history_frame.pack(fill="x", padx=20, pady=(0, 16))
-        self._load_report_history()
 
-    def _set_range(self, start, end):
-        self.start_entry.delete(0, "end")
-        self.start_entry.insert(0, start)
-        self.end_entry.delete(0, "end")
-        self.end_entry.insert(0, end)
-
-    def _validate_date(self, date_str):
+    def _export_report(self):
         try:
-            datetime.datetime.strptime(date_str, "%Y-%m-%d")
-            return True
-        except ValueError:
-            return False
-
-    def _generate_report(self):
-        start  = self.start_entry.get().strip()
-        end    = self.end_entry.get().strip()
+            start, end = self._date_range()
+        except ValueError as error:
+            self.status_label.configure(text=str(error), text_color=THEME["danger"])
+            return
+        report_type = self.report_type.get()
         parish = self.parish_entry.get().strip() or "St. Joseph Parish"
-        rtype  = self.report_type.get()
-
-        if not self._validate_date(start) or not self._validate_date(end):
-            self.status_label.configure(
-                text="Invalid date format. Use YYYY-MM-DD.",
-                text_color=THEME["danger"]
-            )
-            return
-
-        if start > end:
-            self.status_label.configure(
-                text="Start date must be before end date.",
-                text_color=THEME["danger"]
-            )
-            return
-
-        self.status_label.configure(
-            text="Generating PDF — please wait...",
-            text_color=THEME["warning"]
-        )
+        generated_by = self.generated_by_entry.get().strip() or "admin"
+        role = self.generated_role.get()
+        filters = self._filters_used(start, end)
+        self.status_label.configure(text="Exporting PDF...", text_color=THEME["warning"])
 
         def worker():
             try:
-                if rtype == "Summary":
-                    path = self.engine.generate_summary_report(
-                        start, end, parish
-                    )
-                else:
-                    path = self.engine.generate_detailed_report(
-                        start, end, parish
-                    )
+                path = self.engine.generate_custom_report(
+                    report_type,
+                    start,
+                    end,
+                    parish,
+                    generated_by,
+                    role,
+                    filters,
+                )
+                self.db.record_generated_report(
+                    report_type,
+                    start,
+                    end,
+                    generated_by,
+                    role,
+                    path,
+                    filters,
+                )
+                self.db.log_action(generated_by, "GENERATE_REPORT", filters)
                 self.after(0, lambda: self.status_label.configure(
                     text="Report saved: " + path,
-                    text_color=THEME["success"]
+                    text_color=THEME["success"],
                 ))
-                self.after(0, self._load_report_history)
+                self.after(0, self._load_history)
                 self.after(0, lambda: self._open_file(path))
-            except Exception as e:
+            except Exception as error:
                 self.after(0, lambda: self.status_label.configure(
-                    text="Error: " + str(e),
-                    text_color=THEME["danger"]
+                    text="Export failed: " + str(error),
+                    text_color=THEME["danger"],
                 ))
 
         threading.Thread(target=worker, daemon=True).start()
 
+    def _load_history(self):
+        if not hasattr(self, "history_card"):
+            return
+        for child in self.history_card.winfo_children():
+            child.destroy()
+        ctk.CTkLabel(
+            self.history_card,
+            text="Generated Reports",
+            font=font(16, "bold"),
+            text_color=THEME["text_main"],
+        ).pack(anchor="w", padx=20, pady=(16, 8))
+
+        rows = self.db.get_generated_reports(limit=12)
+        if not rows:
+            self._empty(self.history_card, "No generated report records yet.")
+            return
+
+        self._table_header(
+            self.history_card,
+            ["Type", "Range", "Generated By", "Date/Time", "File"],
+            [2, 2, 2, 2, 1],
+        )
+        for idx, row in enumerate(rows):
+            _id, rtype, start, end, user, role, generated_at, file_path, _filters = row
+            values = [
+                rtype,
+                "{} to {}".format(start or "All", end or "All"),
+                "{} ({})".format(user or "-", role or "-"),
+                str(generated_at).replace("T", " ")[:19],
+                "Open",
+            ]
+            self._history_row(self.history_card, values, file_path, idx)
+
+    def _table_header(self, parent, headers, weights):
+        header = ctk.CTkFrame(parent, fg_color=THEME["table_header"])
+        header.pack(fill="x", padx=1)
+        for col, (text, weight) in enumerate(zip(headers, weights)):
+            header.grid_columnconfigure(col, weight=weight)
+            ctk.CTkLabel(
+                header,
+                text=text,
+                font=font(11, "bold"),
+                text_color=THEME["text_sub"],
+                anchor="w",
+            ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+
+    def _table_row(self, parent, values, weights, idx):
+        row = ctk.CTkFrame(
+            parent,
+            fg_color=THEME["input"] if idx % 2 == 0 else THEME["bg_card"],
+        )
+        row.pack(fill="x", padx=1)
+        for col, (value, weight) in enumerate(zip(values, weights)):
+            row.grid_columnconfigure(col, weight=weight)
+            if str(value).upper() in ("PENDING", "APPROVED", "REJECTED", "SUCCESS", "FAILED"):
+                cell = ctk.CTkFrame(row, fg_color="transparent")
+                cell.grid(row=0, column=col, sticky="ew", padx=10, pady=6)
+                create_status_badge(cell, value, compact=True).pack(anchor="w")
+            else:
+                ctk.CTkLabel(
+                    row,
+                    text=str(value)[:58],
+                    font=font(11),
+                    text_color=THEME["text_main"],
+                    anchor="w",
+                ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+
+    def _history_row(self, parent, values, file_path, idx):
+        weights = [2, 2, 2, 2, 1]
+        row = ctk.CTkFrame(
+            parent,
+            fg_color=THEME["input"] if idx % 2 == 0 else THEME["bg_card"],
+        )
+        row.pack(fill="x", padx=1)
+        for col, (value, weight) in enumerate(zip(values, weights)):
+            row.grid_columnconfigure(col, weight=weight)
+            if col == 4:
+                ctk.CTkButton(
+                    row,
+                    text="Open",
+                    height=28,
+                    width=64,
+                    font=font(10, "bold"),
+                    command=lambda p=file_path: self._open_file(p),
+                    **secondary_button_style(THEME["radius_sm"]),
+                ).grid(row=0, column=col, sticky="w", padx=12, pady=6)
+            else:
+                ctk.CTkLabel(
+                    row,
+                    text=str(value)[:48],
+                    font=font(11),
+                    text_color=THEME["text_main"],
+                    anchor="w",
+                ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+
+    def _empty(self, parent, text):
+        ctk.CTkLabel(
+            parent,
+            text=text,
+            font=font(12),
+            text_color=THEME["text_sub"],
+        ).pack(pady=24)
+
     def _open_file(self, path):
         try:
-            os.startfile(path)
+            if path and os.path.exists(path):
+                os.startfile(path)
         except Exception:
             pass
-
-    def _load_report_history(self):
-        for w in self.history_frame.winfo_children():
-            w.destroy()
-
-        reports_dir = "reports"
-        if not os.path.exists(reports_dir):
-            ctk.CTkLabel(
-                self.history_frame,
-                text="No reports generated yet.",
-                font=(THEME["font_family"], 12),
-                text_color=THEME["text_sub"]
-            ).pack(anchor="w")
-            return
-
-        files = sorted(
-            [f for f in os.listdir(reports_dir) if f.endswith(".pdf")],
-            reverse=True
-        )
-
-        if not files:
-            ctk.CTkLabel(
-                self.history_frame,
-                text="No reports generated yet.",
-                font=(THEME["font_family"], 12),
-                text_color=THEME["text_sub"]
-            ).pack(anchor="w")
-            return
-
-        for fname in files[:10]:
-            row = ctk.CTkFrame(self.history_frame, fg_color="transparent")
-            row.pack(fill="x", pady=3)
-            ctk.CTkLabel(
-                row, text=fname,
-                font=(THEME["font_family"], 11),
-                text_color=THEME["text_main"]
-            ).pack(side="left")
-            ctk.CTkButton(
-                row, text="Open",
-                font=(THEME["font_family"], 11), height=28, width=60,
-                corner_radius=14,
-                fg_color=THEME["primary"],
-                hover_color=THEME["primary_dark"],
-                command=lambda f=fname: self._open_file(
-                    os.path.join(reports_dir, f)
-                )
-            ).pack(side="right")

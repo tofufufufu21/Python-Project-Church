@@ -339,19 +339,19 @@ class StaffEventCalendar(ctk.CTkFrame):
         if self._selected_date:
             date_filter = self._selected_date.isoformat()
             query  = """
-                SELECT name, start_date, location
+                SELECT name, start_date, event_time, location
                 FROM events
                 WHERE start_date = ?
-                ORDER BY start_date ASC
+                ORDER BY start_date ASC, event_time ASC
             """
             params = (date_filter,)
         else:
             today  = datetime.date.today().isoformat()
             query  = """
-                SELECT name, start_date, location
+                SELECT name, start_date, event_time, location
                 FROM events
                 WHERE start_date >= ?
-                ORDER BY start_date ASC
+                ORDER BY start_date ASC, event_time ASC
                 LIMIT 10
             """
             params = (today,)
@@ -370,7 +370,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                     (datetime.date.today().isoformat(),)
                 )
                 rows = [
-                    (r[0], r[1], "")
+                    (r[0], r[1], "09:00", "")
                     for r in cursor.fetchall()
                 ]
             conn.close()
@@ -390,7 +390,7 @@ class StaffEventCalendar(ctk.CTkFrame):
             padx=12, pady=(0, 12)
         )
 
-        for name, start_date, location in rows:
+        for name, start_date, event_time, location in rows:
             card = ctk.CTkFrame(
                 scroll, fg_color=THEME["bg_main"],
                 corner_radius=14, border_width=1,
@@ -449,7 +449,7 @@ class StaffEventCalendar(ctk.CTkFrame):
                 text_color=THEME["text_sub"]
             ).pack(anchor="w")
             ctk.CTkLabel(
-                info, text=str(start_date),
+                info, text=str(start_date) + "  " + str(event_time or "09:00"),
                 font=(THEME["font_family"], 12),
                 text_color=THEME["text_main"]
             ).pack(anchor="w")

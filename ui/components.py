@@ -1,4 +1,5 @@
 import datetime
+import calendar
 import os
 import tkinter as tk
 
@@ -375,6 +376,176 @@ def create_secondary_button(parent, text, command):
         font=font(12, "bold"),
         **secondary_button_style(THEME["radius_md"]),
     )
+
+
+def format_currency(value, decimals=0):
+    try:
+        value = float(value or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return "P {:,.{}f}".format(value, decimals)
+
+
+def parse_iso_date(value, fallback=None):
+    try:
+        return datetime.datetime.strptime(str(value).strip(), "%Y-%m-%d").date()
+    except Exception:
+        return fallback
+
+
+def get_date_range(mode, from_date=None, to_date=None, specific_date=None, month_name=None):
+    today = datetime.date.today()
+    mode = mode or "All Time"
+    if mode == "This Week":
+        start = today - datetime.timedelta(days=today.weekday())
+        end = start + datetime.timedelta(days=6)
+        return start.isoformat(), end.isoformat()
+    if mode == "This Month":
+        start = today.replace(day=1)
+        if start.month == 12:
+            end = start.replace(year=start.year + 1, month=1, day=1) - datetime.timedelta(days=1)
+        else:
+            end = start.replace(month=start.month + 1, day=1) - datetime.timedelta(days=1)
+        return start.isoformat(), end.isoformat()
+    if mode == "Specific Date":
+        date_value = parse_iso_date(specific_date, today)
+        return date_value.isoformat(), date_value.isoformat()
+    if mode == "Custom Range":
+        start = parse_iso_date(from_date)
+        end = parse_iso_date(to_date)
+        return (
+            start.isoformat() if start else None,
+            end.isoformat() if end else None,
+        )
+    if mode == "By Month" and month_name:
+        try:
+            month = list(calendar.month_name).index(month_name)
+        except ValueError:
+            month = today.month
+        start = datetime.date(today.year, month, 1)
+        if month == 12:
+            end = datetime.date(today.year + 1, 1, 1) - datetime.timedelta(days=1)
+        else:
+            end = datetime.date(today.year, month + 1, 1) - datetime.timedelta(days=1)
+        return start.isoformat(), end.isoformat()
+    return None, None
+
+
+def create_status_badge(parent, status, compact=False):
+    status_text = str(status or "Unknown").strip()
+    key = status_text.upper()
+    palette = {
+        "APPROVED": (THEME["success_soft"], THEME["success"]),
+        "SUCCESS": (THEME["success_soft"], THEME["success"]),
+        "ON TRACK": (THEME["success_soft"], THEME["success"]),
+        "PENDING": (THEME["warning_soft"], THEME["warning"]),
+        "NEW": (THEME["info_soft"], THEME["info"]),
+        "NEAR LIMIT": (THEME["warning_soft"], THEME["warning"]),
+        "REJECTED": (THEME["danger_soft"], THEME["danger"]),
+        "FAILED": (THEME["danger_soft"], THEME["danger"]),
+        "OVER BUDGET": (THEME["danger_soft"], THEME["danger"]),
+        "NO BUDGET": (THEME["bg_panel"], THEME["text_sub"]),
+        "UPCOMING": (THEME["info_soft"], THEME["info"]),
+        "ONGOING": (THEME["success_soft"], THEME["success"]),
+        "COMPLETED": (THEME["bg_panel"], THEME["text_sub"]),
+        "PAST": (THEME["bg_panel"], THEME["text_sub"]),
+    }
+    bg, fg = palette.get(key, (THEME["bg_panel"], THEME["text_sub"]))
+    badge = ctk.CTkFrame(
+        parent,
+        fg_color=bg,
+        corner_radius=THEME["radius_sm"],
+        border_width=1,
+        border_color=THEME["border"],
+    )
+    ctk.CTkLabel(
+        badge,
+        text=status_text,
+        font=font(9 if compact else 10, "bold"),
+        text_color=fg,
+    ).pack(padx=8 if compact else 10, pady=3 if compact else 5)
+    return badge
+
+
+def create_labeled_entry(parent, label, placeholder="", initial="", width=None):
+    wrap = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(
+        wrap,
+        text=label,
+        font=font(11, "bold"),
+        text_color=THEME["text_sub"],
+        anchor="w",
+    ).pack(anchor="w", pady=(0, 4))
+    entry_options = {
+        "placeholder_text": placeholder,
+        "height": THEME["control_h"],
+        "font": font(12),
+    }
+    if width is not None:
+        entry_options["width"] = width
+    entry_options.update(input_style(THEME["radius_md"]))
+    entry = ctk.CTkEntry(wrap, **entry_options)
+    if initial:
+        entry.insert(0, initial)
+    entry.pack(fill="x")
+    wrap.entry = entry
+    return wrap
+
+
+def create_labeled_option(parent, label, values, variable=None, command=None, width=None):
+    wrap = ctk.CTkFrame(parent, fg_color="transparent")
+    ctk.CTkLabel(
+        wrap,
+        text=label,
+        font=font(11, "bold"),
+        text_color=THEME["text_sub"],
+        anchor="w",
+    ).pack(anchor="w", pady=(0, 4))
+    if variable is None:
+        variable = ctk.StringVar(value=values[0] if values else "")
+    menu_options = {
+        "values": values,
+        "variable": variable,
+        "command": command,
+        "height": THEME["control_h"],
+        "fg_color": THEME["input"],
+        "button_color": THEME["primary"],
+        "button_hover_color": THEME["primary_hover"],
+        "dropdown_fg_color": THEME["bg_card"],
+        "dropdown_hover_color": THEME["bg_card_hover"],
+        "text_color": THEME["text_main"],
+        "dropdown_text_color": THEME["text_main"],
+        "font": font(12),
+        "corner_radius": THEME["radius_md"],
+    }
+    if width is not None:
+        menu_options["width"] = width
+    menu = ctk.CTkOptionMenu(wrap, **menu_options)
+    menu.pack(fill="x")
+    wrap.menu = menu
+    wrap.variable = variable
+    return wrap
+
+
+def add_card_title(parent, title, subtitle=None):
+    header = ctk.CTkFrame(parent, fg_color="transparent")
+    header.pack(fill="x", padx=THEME["card_pad"], pady=(16, 10))
+    ctk.CTkLabel(
+        header,
+        text=title,
+        font=font(15, "bold"),
+        text_color=THEME["text_main"],
+        anchor="w",
+    ).pack(anchor="w")
+    if subtitle:
+        ctk.CTkLabel(
+            header,
+            text=subtitle,
+            font=font(11),
+            text_color=THEME["text_sub"],
+            anchor="w",
+        ).pack(anchor="w", pady=(2, 0))
+    return header
 
 
 def create_table_container(parent):
