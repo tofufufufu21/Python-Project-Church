@@ -1,4 +1,3 @@
-import datetime
 import customtkinter as ctk
 import tkinter as tk
 import os
@@ -23,10 +22,10 @@ def _load_remembered():
         return {}
 
 
-def _save_remembered(username, password):
+def _save_remembered(username):
     os.makedirs("core", exist_ok=True)
     with open(REMEMBER_FILE, "w") as f:
-        json.dump({"username": username, "password": password}, f)
+        json.dump({"username": username}, f)
 
 
 def _clear_remembered():
@@ -181,7 +180,7 @@ class LoginFrame(ctk.CTkFrame):
 
         self.remember_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
-            options_row, text="Remember me",
+            options_row, text="Remember username",
             variable=self.remember_var,
             font=(MODERN_THEME["font_family"], 11),
             text_color=THEME["text_sub"],
@@ -227,9 +226,13 @@ class LoginFrame(ctk.CTkFrame):
         self.username_entry.focus()
 
         remembered = _load_remembered()
-        if remembered.get("username") and remembered.get("password"):
+        if "password" in remembered:
+            if remembered.get("username"):
+                _save_remembered(remembered["username"])
+            else:
+                _clear_remembered()
+        if remembered.get("username"):
             self.username_entry.insert(0, remembered["username"])
-            self.password_entry.insert(0, remembered["password"])
             self.remember_var.set(True)
 
     def _field_frame(self, parent):
@@ -294,7 +297,7 @@ class LoginFrame(ctk.CTkFrame):
 
     def _attempt_login(self):
         username = self.username_entry.get().strip()
-        password = self.password_entry.get().strip()
+        password = self.password_entry.get()
         if not username or not password:
             self.error_label.configure(
                 text="Please enter both username and password.")
@@ -304,11 +307,11 @@ class LoginFrame(ctk.CTkFrame):
 
     def _do_login(self, username, password):
         try:
+            self.on_login(username, password)
             if self.remember_var.get():
-                _save_remembered(username, password)
+                _save_remembered(username)
             else:
                 _clear_remembered()
-            self.on_login(username, password)
         except Exception:
             self.error_label.configure(text="Invalid username or password.")
             self.login_btn.configure(state="normal", text="Sign in")
@@ -326,16 +329,12 @@ class LoginFrame(ctk.CTkFrame):
 
 class ForgotPasswordModal:
     """
-    Step 1  —  Identify account (enter username)
-    Step 2  —  Display one-time security code (OTP)
-    Step 3  —  Verify the code (6-box digit entry)
-    Step 4  —  Set new password + confirm + strength meter
+    Step 1  -  Identify account (enter username)
+    Step 2  -  Set new password + confirm + strength meter
     """
 
     STEP_LABELS = [
         "Identify account",
-        "Security code",
-        "Verify code",
         "New password",
     ]
 
@@ -347,7 +346,7 @@ class ForgotPasswordModal:
 
         self.modal = ctk.CTkToplevel(master)
         self.modal.title("Reset Password")
-        self.modal.geometry("540x600")
+        self.modal.geometry("620x720")
         self.modal.resizable(False, False)
         self.modal.grab_set()
         self.modal.configure(fg_color=THEME["bg_card"])
@@ -396,7 +395,7 @@ class ForgotPasswordModal:
         self._content = ctk.CTkFrame(
             self.modal, fg_color=THEME["bg_card"]
         )
-        self._content.pack(fill="both", expand=True, padx=36, pady=28)
+        self._content.pack(fill="both", expand=True, padx=40, pady=(24, 20))
 
     def _update_progress(self):
         for i, (lbl, line) in enumerate(self._step_widgets):
@@ -429,9 +428,7 @@ class ForgotPasswordModal:
         self._update_progress()
         self._clear()
         {1: self._step1,
-         2: self._step2,
-         3: self._step3,
-         4: self._step4}[n]()
+         2: self._step2}[n]()
 
     # ── Reusable widget helpers ────────────────────────
 
@@ -543,7 +540,7 @@ class ForgotPasswordModal:
                 return
             otp = self.db.generate_reset_token(username)
             if not otp:
-                err.configure(text="Could not generate a reset code. Try again.")
+                err.configure(text="Could not start password reset. Try again.")
                 return
             self._username = username
             self._otp      = otp
@@ -553,180 +550,9 @@ class ForgotPasswordModal:
         user_entry.bind("<Return>", lambda e: proceed())
         user_entry.focus()
 
-    # ══════════════════════════════════════════════════
-    # STEP 2 — Display OTP
-    # ══════════════════════════════════════════════════
+    # Step 2 - New password + confirm
 
     def _step2(self):
-        p = self._content
-        self._heading(
-            p, "Your security code",
-            "Note the one-time code below before proceeding. "
-            "It expires in 15 minutes."
-        )
-
-        code_card = ctk.CTkFrame(
-            p, fg_color=THEME["primary_soft"],
-            corner_radius=16,
-            border_width=2, border_color=THEME["primary"]
-        )
-        code_card.pack(fill="x", pady=(0, 16))
-
-        ctk.CTkLabel(
-            code_card,
-            text="One-time security code",
-            font=(MODERN_THEME["font_family"], 11),
-            text_color=THEME["primary"],
-            anchor="center",
-        ).pack(pady=(14, 8))
-
-        digits_row = ctk.CTkFrame(code_card, fg_color="transparent")
-        digits_row.pack(pady=(0, 14))
-
-        for digit in self._otp:
-            box = ctk.CTkFrame(
-                digits_row,
-                fg_color=THEME["bg_card"],
-                corner_radius=10,
-                border_width=1, border_color=THEME["primary"],
-                width=52, height=58
-            )
-            box.pack(side="left", padx=4)
-            box.pack_propagate(False)
-            ctk.CTkLabel(
-                box, text=digit,
-                font=(MODERN_THEME["font_family"], 28, "bold"),
-                text_color=THEME["primary"]
-            ).place(relx=0.5, rely=0.5, anchor="center")
-
-        ctk.CTkLabel(
-            code_card,
-            text="Valid for 15 minutes  ·  single use",
-            font=(MODERN_THEME["font_family"], 10),
-            text_color=THEME["text_sub"],
-            anchor="center",
-        ).pack(pady=(0, 12))
-
-        expiry_lbl = ctk.CTkLabel(
-            p, text="",
-            font=(MODERN_THEME["font_family"], 11),
-            text_color=THEME["warning"],
-            anchor="w",
-        )
-        expiry_lbl.pack(anchor="w", pady=(0, 8))
-
-        _start = datetime.datetime.now()
-
-        def _tick():
-            elapsed   = (datetime.datetime.now() - _start).seconds
-            remaining = max(0, 15 * 60 - elapsed)
-            mins = remaining // 60
-            secs = remaining % 60
-            expiry_lbl.configure(
-                text="Expires in:  {:02d}:{:02d}".format(mins, secs))
-            if remaining > 0:
-                try:
-                    p.after(1000, _tick)
-                except Exception:
-                    pass
-
-        _tick()
-        self._primary_btn(p, "I've saved my code  →",
-                          lambda: self._show_step(3))
-
-    # ══════════════════════════════════════════════════
-    # STEP 3 — Verify OTP
-    # ══════════════════════════════════════════════════
-
-    def _step3(self):
-        p = self._content
-        self._heading(
-            p, "Enter the security code",
-            "Type the 6-digit code shown in the previous step."
-        )
-
-        digits_row = ctk.CTkFrame(p, fg_color="transparent")
-        digits_row.pack(anchor="w", pady=(0, 18))
-
-        digit_vars    = []
-        digit_entries = []
-
-        def _on_key(event, idx):
-            val = event.widget.get()
-            if val and not val[-1].isdigit():
-                event.widget.delete(0, "end")
-                if len(val) > 1:
-                    event.widget.insert(0, val[:-1])
-                return
-            if len(val) >= 1:
-                event.widget.delete(0, "end")
-                event.widget.insert(0, val[-1])
-                if idx < 5:
-                    digit_entries[idx + 1].focus()
-            elif event.keysym == "BackSpace" and idx > 0:
-                digit_entries[idx - 1].focus()
-                digit_entries[idx - 1].delete(0, "end")
-
-        for i in range(6):
-            var = ctk.StringVar()
-            outer = ctk.CTkFrame(
-                digits_row,
-                fg_color=THEME["input"],
-                corner_radius=10,
-                border_width=1, border_color=THEME["border"],
-                width=56, height=62
-            )
-            outer.pack(side="left", padx=4)
-            outer.pack_propagate(False)
-            e = ctk.CTkEntry(
-                outer, textvariable=var,
-                width=40, height=48,
-                border_width=0,
-                fg_color="transparent",
-                text_color=THEME["text_main"],
-                font=(MODERN_THEME["font_family"], 24, "bold"),
-                justify="center"
-            )
-            e.place(relx=0.5, rely=0.5, anchor="center")
-            e.bind("<KeyRelease>", lambda ev, i=i: _on_key(ev, i))
-            digit_vars.append(var)
-            digit_entries.append(e)
-
-        err = self._error(p)
-        attempts_left = [3]
-
-        def verify():
-            code = "".join(v.get() for v in digit_vars)
-            if len(code) < 6:
-                err.configure(text="Please fill in all 6 digits.")
-                return
-            if self.db.verify_reset_token(self._username, code):
-                self._otp = code
-                self._show_step(4)
-            else:
-                attempts_left[0] -= 1
-                for e2 in digit_entries:
-                    e2.delete(0, "end")
-                digit_entries[0].focus()
-                if attempts_left[0] <= 0:
-                    err.configure(
-                        text="Too many incorrect attempts. Please start over.")
-                    self._primary_btn(p, "Start over",
-                                      lambda: self._show_step(1))
-                    return
-                err.configure(
-                    text="Incorrect code.  {} attempt(s) remaining.".format(
-                        attempts_left[0]))
-
-        self._primary_btn(p, "Verify code  →", verify)
-        digit_entries[-1].bind("<Return>", lambda e: verify())
-        digit_entries[0].focus()
-
-    # ══════════════════════════════════════════════════
-    # STEP 4 — New password + confirm
-    # ══════════════════════════════════════════════════
-
-    def _step4(self):
         p = self._content
         self._heading(
             p, "Create a new password",
@@ -852,10 +678,10 @@ class ForgotPasswordModal:
             ok = self.db.reset_password_with_token(self._username, self._otp, pw)
             if not ok:
                 err.configure(
-                    text="Code expired or already used. Please start over.")
+                    text="Reset session expired. Please start over.")
                 return
             self._clear()
-            self._step = 5
+            self._step = len(self.STEP_LABELS) + 1
             self._update_progress()
             self._success_screen()
 

@@ -1,36 +1,54 @@
 import hashlib
+import hmac
 import os
 import re
 import secrets
 
 
 class SecurityManager:
+    PBKDF2_ITERATIONS = 200_000
 
     @staticmethod
     def hash_password(password: str) -> str:
         salt = secrets.token_hex(16)
-        hashed = hashlib.sha256(
-            (salt + password).encode("utf-8")
-        ).hexdigest()
-        return "{}:{}".format(salt, hashed)
+        hashed = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            SecurityManager.PBKDF2_ITERATIONS,
+        ).hex()
+        return "pbkdf2_sha256${}${}${}".format(
+            SecurityManager.PBKDF2_ITERATIONS,
+            salt,
+            hashed,
+        )
 
     @staticmethod
     def verify_password(plain_password: str, stored_hash: str) -> bool:
+        if stored_hash.startswith("pbkdf2_sha256$"):
+            try:
+                _algorithm, iterations, salt, hashed = stored_hash.split("$", 3)
+                calculated = hashlib.pbkdf2_hmac(
+                    "sha256",
+                    plain_password.encode("utf-8"),
+                    salt.encode("utf-8"),
+                    int(iterations),
+                ).hex()
+                return hmac.compare_digest(calculated, hashed)
+            except Exception:
+                return False
+
         if ":" in stored_hash:
             salt, hashed = stored_hash.split(":", 1)
-            return (
-                hashlib.sha256(
-                    (salt + plain_password).encode("utf-8")
-                ).hexdigest()
-                == hashed
-            )
-        # Legacy plain SHA-256 fallback
-        return (
-            hashlib.sha256(
-                plain_password.encode("utf-8")
+            calculated = hashlib.sha256(
+                (salt + plain_password).encode("utf-8")
             ).hexdigest()
-            == stored_hash
-        )
+            return hmac.compare_digest(calculated, hashed)
+        # Legacy plain SHA-256 fallback
+        calculated = hashlib.sha256(
+            plain_password.encode("utf-8")
+        ).hexdigest()
+        return hmac.compare_digest(calculated, stored_hash)
 
     @staticmethod
     def validate_password_strength(password: str) -> dict:

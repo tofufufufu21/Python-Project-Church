@@ -47,10 +47,11 @@ class DatabaseManager:
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS users (
-                user_id  INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password TEXT NOT NULL,
-                role     TEXT NOT NULL DEFAULT 'staff'
+                user_id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                username                 TEXT NOT NULL UNIQUE,
+                password                 TEXT NOT NULL,
+                role                     TEXT NOT NULL DEFAULT 'staff',
+                last_password_changed_at TEXT
             )
         """)
 
@@ -119,36 +120,25 @@ class DatabaseManager:
         cursor.execute("SELECT COUNT(*) FROM users")
         if cursor.fetchone()[0] == 0:
             cursor.execute("""
-                INSERT INTO users (username, password, role)
-                VALUES (?, ?, ?)
+                INSERT INTO users
+                    (username, password, role, last_password_changed_at)
+                VALUES (?, ?, ?, ?)
             """, (
                 "admin",
                 SecurityManager.hash_password("admin123"),
                 "admin",
+                self._now(),
             ))
             cursor.execute("""
-                INSERT INTO users (username, password, role)
-                VALUES (?, ?, ?)
+                INSERT INTO users
+                    (username, password, role, last_password_changed_at)
+                VALUES (?, ?, ?, ?)
             """, (
                 "staff",
                 SecurityManager.hash_password("staff123"),
                 "staff",
+                self._now(),
             ))
-            self._ensure_column(
-                cursor, "users",
-                "last_password_changed_at", "TEXT"
-            )
-
-            cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS password_reset_tokens (
-                            token_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                            username   TEXT NOT NULL,
-                            token      TEXT NOT NULL,
-                            created_at TEXT NOT NULL,
-                            expires_at TEXT NOT NULL,
-                            used       INTEGER DEFAULT 0
-                        )
-                    """)
         self._init_member_tables(cursor)
 
         conn.commit()
@@ -224,6 +214,7 @@ class DatabaseManager:
         """)
 
     def _run_migrations(self, cursor):
+        self._ensure_column(cursor, "users", "last_password_changed_at", "TEXT")
         self._ensure_column(cursor, "events", "event_time", "TEXT DEFAULT '09:00'")
         self._ensure_column(cursor, "events", "description", "TEXT DEFAULT ''")
         self._ensure_column(cursor, "events", "organizer", "TEXT DEFAULT ''")
@@ -270,6 +261,17 @@ class DatabaseManager:
             )
         """)
 
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                token_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                username   TEXT NOT NULL,
+                token      TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                expires_at TEXT NOT NULL,
+                used       INTEGER DEFAULT 0
+            )
+        """)
+
     # ─── AUTHENTICATION ───────────────────────────────
 
     def validate_login(self, username, password):
@@ -287,19 +289,193 @@ class DatabaseManager:
                 return role
         return None
 
+    def _require_strong_password(self, password):
+        result = SecurityManager.validate_password_strength(password or "")
+        if not result["valid"]:
+            raise ValueError(result["errors"][0])
+
     def create_user(self, username, password, role="staff"):
+        username = (username or "").strip()
+        if not username:
+            raise ValueError("Username is required.")
+        self._require_strong_password(password)
+
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
-            INSERT INTO users (username, password, role)
-            VALUES (?, ?, ?)
+            INSERT INTO users
+                (username, password, role, last_password_changed_at)
+            VALUES (?, ?, ?, ?)
         """, (
             username,
             SecurityManager.hash_password(password),
             role,
+            self._now(),
         ))
         conn.commit()
         conn.close()
+
+    def update_user_account(self, user_id, role, password=None):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        if password:
+            self._require_strong_password(password)
+            cursor.execute("""
+                UPDATE users
+                SET role = ?, password = ?, last_password_changed_at = ?
+                WHERE user_id = ?
+            """, (
+                role,
+                SecurityManager.hash_password(password),
+                self._now(),
+                user_id,
+            ))
+        else:
+            cursor.execute(
+                "UPDATE users SET role = ? WHERE user_id = ?",
+                (role, user_id),
+            )
+        conn.commit()
+        conn.close()
+
+    def user_exists(self, username):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT 1 FROM users WHERE username = ?",
+            ((username or "").strip(),),
+        )
+        exists = cursor.fetchone() is not None
+        conn.close()
+        return exists
+
+    def get_user_password_changed_at(self, username):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT last_password_changed_at FROM users WHERE username = ?",
+            ((username or "").strip(),),
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else None
+
+    def change_user_password(self, username, new_password):
+        username = (username or "").strip()
+        self._require_strong_password(new_password)
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET password = ?, last_password_changed_at = ?
+            WHERE username = ?
+        """, (
+            SecurityManager.hash_password(new_password),
+            self._now(),
+            username,
+        ))
+        changed = cursor.rowcount > 0
+        conn.commit()
+        conn.close()
+        if not changed:
+            raise ValueError("Account not found.")
+        return True
+
+    def _hash_reset_token(self, token):
+        return SecurityManager.hash_password(token)
+
+    def _token_matches(self, plain_token, stored_token):
+        return SecurityManager.verify_password(plain_token, stored_token)
+
+    def generate_reset_token(self, username):
+        username = (username or "").strip()
+        if not self.user_exists(username):
+            return None
+
+        token = SecurityManager.generate_otp()
+        now = datetime.datetime.now()
+        expires_at = now + datetime.timedelta(minutes=15)
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE password_reset_tokens SET used = 1 WHERE username = ?",
+            (username,),
+        )
+        cursor.execute("""
+            INSERT INTO password_reset_tokens
+                (username, token, created_at, expires_at, used)
+            VALUES (?, ?, ?, ?, 0)
+        """, (
+            username,
+            self._hash_reset_token(token),
+            now.isoformat(timespec="seconds"),
+            expires_at.isoformat(timespec="seconds"),
+        ))
+        conn.commit()
+        conn.close()
+        return token
+
+    def _get_valid_reset_token_id(self, username, token):
+        username = (username or "").strip()
+        token = (token or "").strip()
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT token_id, token, expires_at
+            FROM password_reset_tokens
+            WHERE username = ? AND used = 0
+            ORDER BY token_id DESC
+        """, (username,))
+        rows = cursor.fetchall()
+        conn.close()
+
+        now = datetime.datetime.now()
+        for token_id, stored_token, expires_at in rows:
+            try:
+                is_expired = datetime.datetime.fromisoformat(expires_at) < now
+            except Exception:
+                is_expired = True
+            if not is_expired and self._token_matches(token, stored_token):
+                return token_id
+        return None
+
+    def verify_reset_token(self, username, token):
+        return self._get_valid_reset_token_id(username, token) is not None
+
+    def reset_password_with_token(self, username, token, new_password):
+        username = (username or "").strip()
+        self._require_strong_password(new_password)
+        token_id = self._get_valid_reset_token_id(username, token)
+        if token_id is None:
+            return False
+
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE users
+            SET password = ?, last_password_changed_at = ?
+            WHERE username = ?
+        """, (
+            SecurityManager.hash_password(new_password),
+            self._now(),
+            username,
+        ))
+        cursor.execute(
+            "UPDATE password_reset_tokens SET used = 1 WHERE username = ?",
+            (username,),
+        )
+        conn.commit()
+        conn.close()
+
+        self.log_staff_activity(
+            username,
+            "Password reset",
+            username,
+            "Success",
+            "Password reset from login screen.",
+        )
+        return True
 
 
 

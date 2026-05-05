@@ -316,7 +316,7 @@ class StaffControl(ctk.CTkFrame):
     def _open_add_modal(self):
         modal = ctk.CTkToplevel(self)
         modal.title("Add New Account")
-        modal.geometry("480x390")
+        modal.geometry("500x470")
         modal.grab_set()
         modal.resizable(False, False)
 
@@ -328,7 +328,11 @@ class StaffControl(ctk.CTkFrame):
                      text_color=THEME["text_sub"]).pack(pady=(0, 20))
 
         entries = {}
-        for label, key, show in [("Username","username",""), ("Password","password","•")]:
+        for label, key, show in [
+            ("Username", "username", ""),
+            ("Password", "password", "*"),
+            ("Confirm", "confirm_password", "*"),
+        ]:
             row = ctk.CTkFrame(modal, fg_color="transparent")
             row.pack(fill="x", padx=36, pady=6)
             ctk.CTkLabel(row, text=label, font=(THEME["font_family"], 12, "bold"),
@@ -338,6 +342,14 @@ class StaffControl(ctk.CTkFrame):
                              text_color=THEME["text_main"])
             e.pack(side="left", fill="x", expand=True)
             entries[key] = e
+
+        ctk.CTkLabel(
+            modal,
+            text="Password must be 12+ characters with uppercase, lowercase, number, and special character.",
+            font=(THEME["font_family"], 10),
+            text_color=THEME["text_muted"],
+            wraplength=410,
+        ).pack(anchor="w", padx=36, pady=(2, 4))
 
         role_row = ctk.CTkFrame(modal, fg_color="transparent")
         role_row.pack(fill="x", padx=36, pady=6)
@@ -355,14 +367,24 @@ class StaffControl(ctk.CTkFrame):
 
         def do_create():
             u = entries["username"].get().strip()
-            p = entries["password"].get().strip()
+            p = entries["password"].get()
+            confirm = entries["confirm_password"].get()
             if not u or not p:
                 status.configure(text="Username and password are required.")
+                return
+            if p != confirm:
+                status.configure(text="Passwords do not match.")
+                return
+            result = SecurityManager.validate_password_strength(p)
+            if not result["valid"]:
+                status.configure(text=result["errors"][0])
                 return
             try:
                 self.db.create_user(u, p, role_var.get())
                 modal.destroy()
                 self._refresh_all()
+            except ValueError as error:
+                status.configure(text=str(error))
             except Exception:
                 status.configure(text="Username already exists.")
 
@@ -378,7 +400,7 @@ class StaffControl(ctk.CTkFrame):
     def _open_edit_modal(self, user_id, username, role):
         modal = ctk.CTkToplevel(self)
         modal.title("Edit Account")
-        modal.geometry("480x310")
+        modal.geometry("500x400")
         modal.grab_set()
         modal.resizable(False, False)
 
@@ -394,12 +416,32 @@ class StaffControl(ctk.CTkFrame):
         ctk.CTkLabel(pwd_row, text="New Password", font=(THEME["font_family"], 12, "bold"),
                      text_color=THEME["text_main"], width=120, anchor="w").pack(side="left")
         pwd_entry = ctk.CTkEntry(
-            pwd_row, height=40, corner_radius=16, show="•",
+            pwd_row, height=40, corner_radius=16, show="*",
             border_color=THEME["border"], fg_color=THEME["input"],
             text_color=THEME["text_main"],
             placeholder_text="Leave blank to keep current"
         )
         pwd_entry.pack(side="left", fill="x", expand=True)
+
+        confirm_row = ctk.CTkFrame(modal, fg_color="transparent")
+        confirm_row.pack(fill="x", padx=36, pady=6)
+        ctk.CTkLabel(confirm_row, text="Confirm", font=(THEME["font_family"], 12, "bold"),
+                     text_color=THEME["text_main"], width=120, anchor="w").pack(side="left")
+        confirm_entry = ctk.CTkEntry(
+            confirm_row, height=40, corner_radius=16, show="*",
+            border_color=THEME["border"], fg_color=THEME["input"],
+            text_color=THEME["text_main"],
+            placeholder_text="Confirm new password"
+        )
+        confirm_entry.pack(side="left", fill="x", expand=True)
+
+        ctk.CTkLabel(
+            modal,
+            text="Password must be 12+ characters with uppercase, lowercase, number, and special character.",
+            font=(THEME["font_family"], 10),
+            text_color=THEME["text_muted"],
+            wraplength=410,
+        ).pack(anchor="w", padx=36, pady=(2, 4))
 
         role_row = ctk.CTkFrame(modal, fg_color="transparent")
         role_row.pack(fill="x", padx=36, pady=6)
@@ -416,26 +458,28 @@ class StaffControl(ctk.CTkFrame):
         status.pack(pady=(8, 0))
 
         def do_edit():
-            new_pwd  = pwd_entry.get().strip()
+            new_pwd  = pwd_entry.get()
+            confirm_pwd = confirm_entry.get()
             new_role = role_var.get()
+            if confirm_pwd and not new_pwd:
+                status.configure(text="Enter a new password before confirming.")
+                return
+            if new_pwd:
+                if new_pwd != confirm_pwd:
+                    status.configure(text="Passwords do not match.")
+                    return
+                result = SecurityManager.validate_password_strength(new_pwd)
+                if not result["valid"]:
+                    status.configure(text=result["errors"][0])
+                    return
             try:
-                conn   = self.db._get_connection()
-                cursor = conn.cursor()
-                if new_pwd:
-                    cursor.execute(
-                        "UPDATE users SET role=?, password=? WHERE user_id=?",
-                        (new_role, SecurityManager.hash_password(new_pwd), user_id)
-                    )
-                else:
-                    cursor.execute(
-                        "UPDATE users SET role=? WHERE user_id=?",
-                        (new_role, user_id)
-                    )
-                conn.commit(); conn.close()
+                self.db.update_user_account(user_id, new_role, new_pwd or None)
                 modal.destroy()
                 self._refresh_all()
-            except Exception as e:
-                status.configure(text="Error: " + str(e))
+            except ValueError as error:
+                status.configure(text=str(error))
+            except Exception as error:
+                status.configure(text="Error: " + str(error))
 
         ctk.CTkButton(modal, text="Save Changes",
                       font=(THEME["font_family"], 13, "bold"), height=46, corner_radius=14,
