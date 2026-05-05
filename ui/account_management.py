@@ -499,3 +499,27 @@ class StaffControl(ctk.CTkFrame):
         self._build_action_row()
         self._build_overview_cards()
         self._build_staff_table()
+
+    def _do_change_password(self, username, new_password, confirm_password,
+                            error_label):
+        # ── Validation ──────────────────────────────────
+        if not new_password:
+            error_label.configure(text="Password cannot be empty.")
+            return
+
+        if new_password != confirm_password:
+            error_label.configure(text="Passwords do not match.")
+            return
+
+        result = SecurityManager.validate_password_strength(new_password)
+        if not result["valid"]:
+            error_label.configure(text=result["errors"][0])
+            return
+
+        # ── Save (updates last_password_changed_at → triggers
+        #          session invalidation on the affected user) ──
+        self.db.change_user_password(username, new_password)
+        error_label.configure(
+            text="Password updated successfully.",
+            text_color=THEME["success"]
+        )

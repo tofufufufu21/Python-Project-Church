@@ -134,7 +134,21 @@ class DatabaseManager:
                 SecurityManager.hash_password("staff123"),
                 "staff",
             ))
+            self._ensure_column(
+                cursor, "users",
+                "last_password_changed_at", "TEXT"
+            )
 
+            cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                            token_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                            username   TEXT NOT NULL,
+                            token      TEXT NOT NULL,
+                            created_at TEXT NOT NULL,
+                            expires_at TEXT NOT NULL,
+                            used       INTEGER DEFAULT 0
+                        )
+                    """)
         self._init_member_tables(cursor)
 
         conn.commit()
@@ -286,6 +300,8 @@ class DatabaseManager:
         ))
         conn.commit()
         conn.close()
+
+
 
     # ─── DASHBOARD AND DONATIONS ──────────────────────
 
@@ -1456,3 +1472,4 @@ class DatabaseManager:
         rows = cursor.fetchall()
         conn.close()
         return rows
+
