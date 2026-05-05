@@ -1,22 +1,39 @@
 import hashlib
 import os
+import secrets
 
 
 class SecurityManager:
 
     @staticmethod
     def hash_password(password: str) -> str:
-        return hashlib.sha256(password.encode("utf-8")).hexdigest()
+        salt = secrets.token_hex(16)
+        hashed = hashlib.sha256(
+            (salt + password).encode("utf-8")
+        ).hexdigest()
+        return "{}:{}".format(salt, hashed)
 
     @staticmethod
-    def verify_password(plain_password: str, hashed_password: str) -> bool:
-        return SecurityManager.hash_password(plain_password) == hashed_password
+    def verify_password(plain_password: str, stored_hash: str) -> bool:
+        if ":" in stored_hash:
+            salt, hashed = stored_hash.split(":", 1)
+            return (
+                hashlib.sha256(
+                    (salt + plain_password).encode("utf-8")
+                ).hexdigest()
+                == hashed
+            )
+        # Legacy support — old plain SHA256 passwords
+        return (
+            hashlib.sha256(
+                plain_password.encode("utf-8")
+            ).hexdigest()
+            == stored_hash
+        )
 
     @staticmethod
     def is_strong_password(password: str) -> bool:
-        if len(password) < 6:
-            return False
-        return True
+        return len(password) >= 6
 
     @staticmethod
     def generate_session_token(username: str) -> str:

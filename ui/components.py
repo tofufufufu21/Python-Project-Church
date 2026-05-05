@@ -45,12 +45,14 @@ NAV_ICONS = {
     "Event Calendar": "EC",
     "Expense Request": "ER",
     "Basic Reports": "BR",
+    "Profiling": "PR",
 }
 
 
 ADMIN_NAV = [
     "Dashboard",
     "Financial Analytics",
+    "Profiling",
     "Event Management",
     "Expense Management",
     "Account Management",
@@ -58,7 +60,6 @@ ADMIN_NAV = [
     "Reports",
     "AI Assistant",
 ]
-
 
 STAFF_NAV = [
     "Donation Entry",

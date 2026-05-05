@@ -21,6 +21,7 @@ from ui.reports import Reports
 from ui.settings import Settings
 from ui.chatbot import ChatbotScreen
 from ui.staff_donation import StaffDonationEntry
+from ui.profiling import ProfilingScreen
 
 
 ctk.set_appearance_mode("Dark")
@@ -77,68 +78,48 @@ class ChurchTrackApp(ctk.CTk):
 
         screens = {
             "Dashboard": lambda: AdminDashboard(
-                self,
-                self.db_manager,
-                self.ai_engine,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login,
             ),
             "Financial Analytics": lambda: FinancialAnalytics(
-                self,
-                self.db_manager,
-                self.ai_engine,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login,
+            ),
+            "Profiling": lambda: ProfilingScreen(
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "Event Management": lambda: EventManagement(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "Expense Management": lambda: ExpenseManagement(
-                self,
-                self.db_manager,
-                self.ai_engine,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login,
             ),
             "Account Management": lambda: StaffControl(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "Staff Control": lambda: StaffControl(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "Audit Logs": lambda: AuditLogs(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "Reports": lambda: Reports(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
             "AI Assistant": lambda: ChatbotScreen(
-                self,
-                self.db_manager,
-                self.ai_engine,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager, self.ai_engine,
+                self._load_admin_screen, self.show_login,
             ),
             "Settings": lambda: Settings(
-                self,
-                self.db_manager,
-                self._load_admin_screen,
-                self.show_login,
+                self, self.db_manager,
+                self._load_admin_screen, self.show_login,
             ),
         }
 
@@ -146,10 +127,8 @@ class ChurchTrackApp(ctk.CTk):
             frame = screens.get(screen, screens["Dashboard"])()
             self.after_idle(lambda: polish_interactions(frame))
         except Exception as error:
-            print(f"Screen load error for '{screen}': {error}")
-
+            print("Screen load error for '{}': {}".format(screen, error))
             import traceback
-
             traceback.print_exc()
             frame = screens["Dashboard"]()
             self.after_idle(lambda: polish_interactions(frame))

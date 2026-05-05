@@ -135,8 +135,79 @@ class DatabaseManager:
                 "staff",
             ))
 
+        self._init_member_tables(cursor)
+
         conn.commit()
         conn.close()
+
+    # ─── MEMBER TABLES SETUP ──────────────────────────
+
+    def _init_member_tables(self, cursor):
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS member_families (
+                family_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_name TEXT NOT NULL,
+                address     TEXT DEFAULT '',
+                created_at  TEXT
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS members (
+                member_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name            TEXT NOT NULL,
+                nickname             TEXT DEFAULT '',
+                date_of_birth        TEXT,
+                gender               TEXT DEFAULT '',
+                civil_status         TEXT DEFAULT '',
+                address              TEXT DEFAULT '',
+                contact_number       TEXT DEFAULT '',
+                email                TEXT DEFAULT '',
+                date_joined          TEXT,
+                ministry             TEXT DEFAULT '',
+                role                 TEXT DEFAULT 'Member',
+                is_active            INTEGER DEFAULT 1,
+                family_id            INTEGER,
+                is_head_of_family    INTEGER DEFAULT 0,
+                baptism_date         TEXT,
+                confirmation_date    TEXT,
+                first_communion_date TEXT,
+                marriage_date        TEXT,
+                anointing_date       TEXT,
+                church_wedding       INTEGER DEFAULT 0,
+                notes                TEXT DEFAULT '',
+                created_at           TEXT,
+                FOREIGN KEY (family_id)
+                    REFERENCES member_families(family_id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS member_sacraments (
+                sacrament_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id          INTEGER NOT NULL,
+                sacrament_type     TEXT NOT NULL,
+                sacrament_date     TEXT,
+                officiating_priest TEXT DEFAULT '',
+                location           TEXT DEFAULT '',
+                notes              TEXT DEFAULT '',
+                FOREIGN KEY (member_id)
+                    REFERENCES members(member_id)
+            )
+        """)
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS member_attendance (
+                attendance_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id       INTEGER NOT NULL,
+                attendance_type TEXT NOT NULL,
+                event_name      TEXT DEFAULT '',
+                attendance_date TEXT NOT NULL,
+                notes           TEXT DEFAULT '',
+                FOREIGN KEY (member_id)
+                    REFERENCES members(member_id)
+            )
+        """)
 
     def _run_migrations(self, cursor):
         self._ensure_column(cursor, "events", "event_time", "TEXT DEFAULT '09:00'")
@@ -185,7 +256,7 @@ class DatabaseManager:
             )
         """)
 
-    # AUTHENTICATION
+    # ─── AUTHENTICATION ───────────────────────────────
 
     def validate_login(self, username, password):
         conn = self._get_connection()
@@ -216,7 +287,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-    # DASHBOARD AND DONATIONS
+    # ─── DASHBOARD AND DONATIONS ──────────────────────
 
     def get_dashboard_overview(self):
         conn = self._get_connection()
@@ -254,40 +325,42 @@ class DatabaseManager:
         upcoming_events = cursor.fetchone()[0]
         conn.close()
         return {
-            "total_donations": total_donations or 0,
-            "donation_records": donation_records or 0,
-            "total_donors": total_donors or 0,
-            "total_expenses": total_expenses or 0,
+            "total_donations":        total_donations or 0,
+            "donation_records":       donation_records or 0,
+            "total_donors":           total_donors or 0,
+            "total_expenses":         total_expenses or 0,
             "approved_expense_records": approved_expense_records or 0,
-            "net_balance": (total_donations or 0) - (total_expenses or 0),
-            "total_users": total_users or 0,
-            "total_staff": total_staff or 0,
-            "total_events": total_events or 0,
-            "upcoming_events": upcoming_events or 0,
+            "net_balance":            (total_donations or 0) - (total_expenses or 0),
+            "total_users":            total_users or 0,
+            "total_staff":            total_staff or 0,
+            "total_events":           total_events or 0,
+            "upcoming_events":        upcoming_events or 0,
         }
 
     def get_kpi_data(self):
         overview = self.get_dashboard_overview()
-        cursor = self._get_connection().cursor()
-        conn = cursor.connection
+        conn = self._get_connection()
+        cursor = conn.cursor()
         cursor.execute("""
             SELECT COUNT(*) FROM events
             WHERE start_date >= date('now')
             AND start_date <= date('now', '+7 days')
         """)
         events_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM expenses WHERE status = 'PENDING'")
+        cursor.execute(
+            "SELECT COUNT(*) FROM expenses WHERE status = 'PENDING'"
+        )
         pending_expenses = cursor.fetchone()[0]
         conn.close()
         return {
-            "total_donations": "P {:,.0f}".format(overview["total_donations"]),
-            "total_expenses": "P {:,.0f}".format(overview["total_expenses"]),
-            "net_balance": "P {:,.0f}".format(overview["net_balance"]),
-            "net_balance_raw": overview["net_balance"],
-            "events_count": str(events_count),
+            "total_donations":  "P {:,.0f}".format(overview["total_donations"]),
+            "total_expenses":   "P {:,.0f}".format(overview["total_expenses"]),
+            "net_balance":      "P {:,.0f}".format(overview["net_balance"]),
+            "net_balance_raw":  overview["net_balance"],
+            "events_count":     str(events_count),
             "pending_expenses": str(pending_expenses),
-            "donor_count": str(overview["total_donors"]),
-            "forecast": "Stable",
+            "donor_count":      str(overview["total_donors"]),
+            "forecast":         "Stable",
         }
 
     def get_historical_data(self):
@@ -355,20 +428,15 @@ class DatabaseManager:
                 (date, donor_name, category, amount,
                  type, remarks, user_id)
             VALUES (?, ?, ?, ?, 'INFLOW', ?, ?)
-        """, (
-            date, donor_name, category,
-            amount, remarks, user_id,
-        ))
+        """, (date, donor_name, category, amount, remarks, user_id))
         trans_id = cursor.lastrowid
         conn.commit()
         conn.close()
-
         if self._ai_engine is not None:
             try:
                 self._ai_engine.retrain_if_needed()
             except Exception:
                 pass
-
         return trans_id
 
     def get_donation_categories(self):
@@ -404,7 +472,9 @@ class DatabaseManager:
             params.append(category)
         search = self._normalize_filter(search)
         if search:
-            clauses.append("(donor_name LIKE ? OR category LIKE ? OR remarks LIKE ?)")
+            clauses.append(
+                "(donor_name LIKE ? OR category LIKE ? OR remarks LIKE ?)"
+            )
             like = "%" + search + "%"
             params.extend([like, like, like])
         cursor.execute("""
@@ -420,10 +490,8 @@ class DatabaseManager:
     def get_donation_totals(self, start_date=None, end_date=None,
                             category=None, search=None):
         rows = self.get_filtered_donations(
-            start_date=start_date,
-            end_date=end_date,
-            category=category,
-            search=search,
+            start_date=start_date, end_date=end_date,
+            category=category, search=search,
         )
         total = sum(float(row[3] or 0) for row in rows)
         donors = {
@@ -483,15 +551,12 @@ class DatabaseManager:
 
     def import_from_excel(self, filepath):
         from core.ai_engine import load_from_excel
-
         df = load_from_excel(filepath)
         df["type"] = "INFLOW"
-
         conn = self._get_connection()
         cursor = conn.cursor()
         inserted = 0
         skipped = 0
-
         for _, row in df.iterrows():
             cursor.execute("""
                 SELECT COUNT(*) FROM transactions
@@ -506,7 +571,6 @@ class DatabaseManager:
                 float(row["amount"]),
             ))
             exists = cursor.fetchone()[0]
-
             if exists == 0:
                 cursor.execute("""
                     INSERT INTO transactions
@@ -523,24 +587,17 @@ class DatabaseManager:
                 inserted += 1
             else:
                 skipped += 1
-
         conn.commit()
         conn.close()
-
         if self._ai_engine is not None:
             try:
                 self._ai_engine.retrain_if_needed()
             except Exception:
                 pass
-
-        print(
-            "Import complete - {} new records added, {} duplicates skipped.".format(
-                inserted, skipped
-            )
-        )
+        print("Import complete - {} new, {} skipped.".format(inserted, skipped))
         return inserted, skipped
 
-    # EXPENSES AND BUDGETS
+    # ─── EXPENSES AND BUDGETS ─────────────────────────
 
     def save_expense_request(self, date, category, amount,
                               reason, submitted_by=None):
@@ -558,13 +615,10 @@ class DatabaseManager:
         expense_id = cursor.lastrowid
         conn.commit()
         conn.close()
-
         if submitted_by:
             self.log_staff_activity(
-                submitted_by,
-                "CREATE_EXPENSE_REQUEST",
-                "Expense ID {}".format(expense_id),
-                "Pending",
+                submitted_by, "CREATE_EXPENSE_REQUEST",
+                "Expense ID {}".format(expense_id), "Pending",
                 "{} | P {:,.2f}".format(category, float(amount or 0)),
             )
         return expense_id
@@ -574,9 +628,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE expenses
-            SET status = 'APPROVED',
-                approved_by = ?,
-                approved_at = ?
+            SET status = 'APPROVED', approved_by = ?, approved_at = ?
             WHERE expense_id = ?
         """, (approved_by, self._now(), expense_id))
         conn.commit()
@@ -587,9 +639,7 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE expenses
-            SET status = 'REJECTED',
-                approved_by = ?,
-                approved_at = ?
+            SET status = 'REJECTED', approved_by = ?, approved_at = ?
             WHERE expense_id = ?
         """, (approved_by, self._now(), expense_id))
         conn.commit()
@@ -659,7 +709,9 @@ class DatabaseManager:
             params.append(status.upper())
         search = self._normalize_filter(search)
         if search:
-            clauses.append("(category LIKE ? OR reason LIKE ? OR submitted_by LIKE ?)")
+            clauses.append(
+                "(category LIKE ? OR reason LIKE ? OR submitted_by LIKE ?)"
+            )
             like = "%" + search + "%"
             params.extend([like, like, like])
         cursor.execute("""
@@ -706,19 +758,18 @@ class DatabaseManager:
         """, params)
         counts = {row[0]: row[1] for row in cursor.fetchall()}
         cursor.execute("""
-            SELECT COUNT(*)
-            FROM expenses
+            SELECT COUNT(*) FROM expenses
             WHERE UPPER(status) = 'PENDING'
             AND date(COALESCE(requested_at, date)) >= date('now', '-7 days')
         """)
         new_requests = cursor.fetchone()[0]
         conn.close()
         return {
-            "pending": counts.get("PENDING", 0),
+            "pending":  counts.get("PENDING", 0),
             "approved": counts.get("APPROVED", 0),
             "rejected": counts.get("REJECTED", 0),
-            "new": new_requests,
-            "total": sum(counts.values()),
+            "new":      new_requests,
+            "total":    sum(counts.values()),
         }
 
     def get_expense_historical_data(self):
@@ -762,9 +813,9 @@ class DatabaseManager:
         total_expenses = cursor.fetchone()[0]
         conn.close()
         return {
-            "income": total_income,
+            "income":   total_income,
             "expenses": total_expenses,
-            "balance": total_income - total_expenses,
+            "balance":  total_income - total_expenses,
         }
 
     def get_monthly_expenses(self):
@@ -796,23 +847,13 @@ class DatabaseManager:
                 UPDATE expense_budgets
                 SET budget_amount = ?, period = ?, updated_at = ?
                 WHERE category = ?
-            """, (
-                float(budget_amount or 0),
-                period or "MONTHLY",
-                now,
-                category,
-            ))
+            """, (float(budget_amount or 0), period or "MONTHLY", now, category))
         else:
             cursor.execute("""
                 INSERT INTO expense_budgets
                     (category, budget_amount, period, updated_at)
                 VALUES (?, ?, ?, ?)
-            """, (
-                category,
-                float(budget_amount or 0),
-                period or "MONTHLY",
-                now,
-            ))
+            """, (category, float(budget_amount or 0), period or "MONTHLY", now))
         conn.commit()
         conn.close()
 
@@ -870,7 +911,7 @@ class DatabaseManager:
         conn.close()
         return rows
 
-    # EVENTS
+    # ─── EVENTS ───────────────────────────────────────
 
     def save_event(self, name, start_date, event_time="09:00",
                    end_date=None, location="", description="",
@@ -903,11 +944,11 @@ class DatabaseManager:
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE events
-            SET name = ?, start_date = ?, event_time = ?,
-                end_date = ?, recurring = ?, location = ?,
-                description = ?, organizer = ?, attendees = ?,
-                status = ?, color = ?
-            WHERE event_id = ?
+            SET name=?, start_date=?, event_time=?,
+                end_date=?, recurring=?, location=?,
+                description=?, organizer=?, attendees=?,
+                status=?, color=?
+            WHERE event_id=?
         """, (
             name, start_date, event_time or "09:00",
             end_date or None, int(recurring or 0),
@@ -947,7 +988,9 @@ class DatabaseManager:
                 params.append(end_date)
         search = self._normalize_filter(search)
         if search:
-            clauses.append("(name LIKE ? OR location LIKE ? OR description LIKE ?)")
+            clauses.append(
+                "(name LIKE ? OR location LIKE ? OR description LIKE ?)"
+            )
             like = "%" + search + "%"
             params.extend([like, like, like])
         cursor.execute("""
@@ -976,7 +1019,7 @@ class DatabaseManager:
         conn.close()
         return row
 
-    # AUDIT, STAFF ACTIVITY, REPORTS
+    # ─── AUDIT, STAFF ACTIVITY, REPORTS ──────────────
 
     def get_audit_trail(self, start_date=None, end_date=None, limit=100):
         conn = self._get_connection()
@@ -1008,12 +1051,7 @@ class DatabaseManager:
             INSERT INTO audit_trail
                 (user_id, action, timestamp, details)
             VALUES (?, ?, ?, ?)
-        """, (
-            user_id,
-            action,
-            self._now(),
-            details,
-        ))
+        """, (user_id, action, self._now(), details))
         conn.commit()
         conn.close()
 
@@ -1029,21 +1067,16 @@ class DatabaseManager:
                  timestamp, status, details)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (
-            staff_username or "staff",
-            action,
-            affected_record or "",
-            timestamp,
-            status or "Success",
-            details or "",
+            staff_username or "staff", action,
+            affected_record or "", timestamp,
+            status or "Success", details or "",
         ))
         cursor.execute("""
             INSERT INTO audit_trail
                 (user_id, action, timestamp, details)
             VALUES (?, ?, ?, ?)
         """, (
-            staff_username or "staff",
-            action,
-            timestamp,
+            staff_username or "staff", action, timestamp,
             "{} | {} | {}".format(
                 affected_record or "",
                 status or "Success",
@@ -1093,14 +1126,8 @@ class DatabaseManager:
                  generated_role, generated_at, file_path, filters)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            report_type,
-            start_date,
-            end_date,
-            generated_by,
-            generated_role,
-            self._now(),
-            file_path,
-            filters,
+            report_type, start_date, end_date, generated_by,
+            generated_role, self._now(), file_path, filters,
         ))
         conn.commit()
         conn.close()
@@ -1132,8 +1159,300 @@ class DatabaseManager:
             return self.get_audit_trail(start_date, end_date, limit=500)
         if "staff" in report_type:
             return self.get_staff_activity(
-                start_date=start_date,
-                end_date=end_date,
-                limit=500,
-            )
+                start_date=start_date, end_date=end_date, limit=500)
         return []
+
+    # ─── MEMBER CRUD ──────────────────────────────────
+
+    def save_member(self, full_name, nickname="", date_of_birth=None,
+                    gender="", civil_status="", address="",
+                    contact_number="", email="", date_joined=None,
+                    ministry="", role="Member", family_id=None,
+                    is_head_of_family=0, baptism_date=None,
+                    confirmation_date=None, first_communion_date=None,
+                    marriage_date=None, anointing_date=None,
+                    church_wedding=0, notes=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO members (
+                full_name, nickname, date_of_birth, gender,
+                civil_status, address, contact_number, email,
+                date_joined, ministry, role, is_active,
+                family_id, is_head_of_family, baptism_date,
+                confirmation_date, first_communion_date,
+                marriage_date, anointing_date, church_wedding,
+                notes, created_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,1,?,?,?,?,?,?,?,?,?,?)
+        """, (
+            full_name, nickname, date_of_birth, gender,
+            civil_status, address, contact_number, email,
+            date_joined, ministry, role,
+            family_id, is_head_of_family, baptism_date,
+            confirmation_date, first_communion_date,
+            marriage_date, anointing_date, church_wedding,
+            notes, self._now()
+        ))
+        member_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return member_id
+
+    def update_member(self, member_id, full_name, nickname="",
+                      date_of_birth=None, gender="", civil_status="",
+                      address="", contact_number="", email="",
+                      date_joined=None, ministry="", role="Member",
+                      family_id=None, is_head_of_family=0,
+                      baptism_date=None, confirmation_date=None,
+                      first_communion_date=None, marriage_date=None,
+                      anointing_date=None, church_wedding=0, notes=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE members SET
+                full_name=?, nickname=?, date_of_birth=?,
+                gender=?, civil_status=?, address=?,
+                contact_number=?, email=?, date_joined=?,
+                ministry=?, role=?, family_id=?,
+                is_head_of_family=?, baptism_date=?,
+                confirmation_date=?, first_communion_date=?,
+                marriage_date=?, anointing_date=?,
+                church_wedding=?, notes=?
+            WHERE member_id=?
+        """, (
+            full_name, nickname, date_of_birth, gender,
+            civil_status, address, contact_number, email,
+            date_joined, ministry, role, family_id,
+            is_head_of_family, baptism_date, confirmation_date,
+            first_communion_date, marriage_date, anointing_date,
+            church_wedding, notes, member_id
+        ))
+        conn.commit()
+        conn.close()
+
+    def set_member_active(self, member_id, is_active):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE members SET is_active=? WHERE member_id=?",
+            (int(is_active), member_id)
+        )
+        conn.commit()
+        conn.close()
+
+    def delete_member(self, member_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM members WHERE member_id=?", (member_id,)
+        )
+        conn.commit()
+        conn.close()
+
+    def get_member_by_id(self, member_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT * FROM members WHERE member_id=?", (member_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        return row
+
+    def get_all_members(self, search=None, ministry=None,
+                        role=None, is_active=None):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        clauses = ["1=1"]
+        params = []
+        if search:
+            clauses.append(
+                "(full_name LIKE ? OR nickname LIKE ? "
+                "OR contact_number LIKE ? OR email LIKE ?)"
+            )
+            like = "%" + search + "%"
+            params.extend([like, like, like, like])
+        if ministry and ministry != "All":
+            clauses.append("ministry=?")
+            params.append(ministry)
+        if role and role != "All":
+            clauses.append("role=?")
+            params.append(role)
+        if is_active is not None:
+            clauses.append("is_active=?")
+            params.append(int(is_active))
+        cursor.execute("""
+            SELECT member_id, full_name, nickname, gender,
+                   contact_number, ministry, role, is_active,
+                   date_joined, date_of_birth
+            FROM members
+            WHERE """ + " AND ".join(clauses) + """
+            ORDER BY full_name ASC
+        """, params)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_member_stats(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM members")
+        total = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM members WHERE is_active=1"
+        )
+        active = cursor.fetchone()[0]
+        cursor.execute(
+            "SELECT COUNT(*) FROM members WHERE is_active=0"
+        )
+        inactive = cursor.fetchone()[0]
+        first_of_month = datetime.date.today().replace(day=1).isoformat()
+        cursor.execute(
+            "SELECT COUNT(*) FROM members WHERE created_at >= ?",
+            (first_of_month,)
+        )
+        new_this_month = cursor.fetchone()[0]
+        conn.close()
+        return {
+            "total": total, "active": active,
+            "inactive": inactive, "new_this_month": new_this_month
+        }
+
+    def get_member_ministries(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT DISTINCT ministry FROM members
+            WHERE ministry IS NOT NULL AND TRIM(ministry) != ''
+            ORDER BY ministry
+        """)
+        rows = [r[0] for r in cursor.fetchall()]
+        conn.close()
+        return rows
+
+    # ─── SACRAMENTS ───────────────────────────────────
+
+    def save_sacrament(self, member_id, sacrament_type,
+                       sacrament_date=None, officiating_priest="",
+                       location="", notes=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO member_sacraments
+                (member_id, sacrament_type, sacrament_date,
+                 officiating_priest, location, notes)
+            VALUES (?,?,?,?,?,?)
+        """, (
+            member_id, sacrament_type, sacrament_date,
+            officiating_priest, location, notes
+        ))
+        conn.commit()
+        conn.close()
+
+    def get_member_sacraments(self, member_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT sacrament_id, sacrament_type, sacrament_date,
+                   officiating_priest, location, notes
+            FROM member_sacraments
+            WHERE member_id=?
+            ORDER BY sacrament_date ASC
+        """, (member_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def delete_sacrament(self, sacrament_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM member_sacraments WHERE sacrament_id=?",
+            (sacrament_id,)
+        )
+        conn.commit()
+        conn.close()
+
+    # ─── ATTENDANCE ───────────────────────────────────
+
+    def save_attendance(self, member_id, attendance_type,
+                        attendance_date, event_name="", notes=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO member_attendance
+                (member_id, attendance_type, event_name,
+                 attendance_date, notes)
+            VALUES (?,?,?,?,?)
+        """, (
+            member_id, attendance_type, event_name,
+            attendance_date, notes
+        ))
+        conn.commit()
+        conn.close()
+
+    def get_member_attendance(self, member_id, limit=50):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT attendance_id, attendance_type, event_name,
+                   attendance_date, notes
+            FROM member_attendance
+            WHERE member_id=?
+            ORDER BY attendance_date DESC
+            LIMIT ?
+        """, (member_id, limit))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def delete_attendance(self, attendance_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "DELETE FROM member_attendance WHERE attendance_id=?",
+            (attendance_id,)
+        )
+        conn.commit()
+        conn.close()
+
+    # ─── FAMILIES ─────────────────────────────────────
+
+    def save_family(self, family_name, address=""):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO member_families (family_name, address, created_at)
+            VALUES (?,?,?)
+        """, (family_name, address, self._now()))
+        family_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+        return family_id
+
+    def get_all_families(self):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT f.family_id, f.family_name, f.address,
+                   COUNT(m.member_id) as member_count
+            FROM member_families f
+            LEFT JOIN members m ON m.family_id = f.family_id
+            GROUP BY f.family_id
+            ORDER BY f.family_name
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
+
+    def get_family_members(self, family_id):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT member_id, full_name, role, is_head_of_family
+            FROM members WHERE family_id=?
+            ORDER BY is_head_of_family DESC, full_name
+        """, (family_id,))
+        rows = cursor.fetchall()
+        conn.close()
+        return rows
