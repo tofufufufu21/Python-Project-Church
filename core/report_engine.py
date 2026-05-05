@@ -216,9 +216,12 @@ class ReportEngine:
                 pdf.set_font("Helvetica", "", 8)
             pdf.set_fill_color(248, 250, 252) if fill else pdf.set_fill_color(255, 255, 255)
             pdf.set_text_color(35, 45, 63)
+
             for index, (value, width) in enumerate(zip(row, widths)):
                 text = self._clean(value)
-                align = "R" if "P " in text and index > 0 else "L"
+
+                align = "L"
+
                 pdf.cell(width, 6, text[: max(8, int(width * 0.62))], border=0, fill=True, align=align)
             pdf.ln()
             fill = not fill
@@ -281,6 +284,10 @@ class ChurchPDF(FPDF):
         self.generated_role = generated_role
 
     def header(self):
+        logo_path = "parish_logo.png"
+        if os.path.exists(logo_path):
+            self.image(logo_path, 10, 8, 33)
+
         self.set_font("Helvetica", "B", 13)
         self.set_text_color(30, 42, 58)
         self.cell(0, 8, self._clean(self.parish_name), ln=True, align="C")
@@ -289,7 +296,7 @@ class ChurchPDF(FPDF):
         self.cell(0, 5, self._clean("Official ChurchTrack Report"), ln=True, align="C")
         self.set_draw_color(37, 99, 235)
         self.set_line_width(0.6)
-        self.line(10, self.get_y() + 1, self.w - 10, self.get_y() + 1)
+        self.line(10, self.get_y() + 20, self.w - 10, self.get_y() + 20)
         self.ln(5)
 
     def footer(self):
