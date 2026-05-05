@@ -353,62 +353,6 @@ class EventManagement(ctk.CTkFrame):
         for idx, row in enumerate(rows):
             self._event_row(scroll, row, idx)
 
-    def _event_row(self, parent, row_data, idx):
-        event_id, name, start_date, event_time, _end_date, location, description, _organizer, _attendees, status, _recurring, _color = row_data
-        row = ctk.CTkFrame(
-            parent,
-            fg_color=THEME["input"] if idx % 2 == 0 else THEME["bg_card"],
-        )
-        row.pack(fill="x", padx=1)
-        weights = [1, 1, 2, 2, 1, 1]
-        for col, weight in enumerate(weights):
-            row.grid_columnconfigure(col, weight=weight)
-
-        values = [
-            str(start_date),
-            str(event_time or "09:00"),
-            str(name),
-            str(location or description or "-")[:32],
-        ]
-        for col, value in enumerate(values):
-            ctk.CTkLabel(
-                row,
-                text=value,
-                font=font(11, "bold" if col in (1, 2) else "normal"),
-                text_color=THEME["primary"] if col == 1 else THEME["text_main"],
-                anchor="w",
-            ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
-
-        status_cell = ctk.CTkFrame(row, fg_color="transparent")
-        status_cell.grid(row=0, column=4, sticky="ew", padx=10, pady=6)
-        create_status_badge(status_cell, self._effective_status(start_date, status), compact=True).pack(anchor="w")
-
-        actions = ctk.CTkFrame(row, fg_color="transparent")
-        actions.grid(row=0, column=5, sticky="ew", padx=8, pady=6)
-        ctk.CTkButton(
-            actions,
-            text="Edit",
-            width=54,
-            height=30,
-            font=font(10, "bold"),
-            command=lambda eid=event_id: self._open_event_modal(eid),
-            **secondary_button_style(THEME["radius_sm"]),
-        ).pack(side="left", padx=(0, 4))
-        ctk.CTkButton(
-            actions,
-            text="Delete",
-            width=60,
-            height=30,
-            font=font(10, "bold"),
-            fg_color=THEME["danger_soft"],
-            hover_color=THEME["danger"],
-            text_color=THEME["danger"],
-            border_width=1,
-            border_color=THEME["danger_soft"],
-            corner_radius=THEME["radius_sm"],
-            command=lambda eid=event_id: self._delete_event(eid),
-        ).pack(side="left")
-
     def _open_event_modal(self, event_id=None):
         row = self.db.get_event_by_id(event_id) if event_id else None
         modal = ctk.CTkToplevel(self)
@@ -472,17 +416,6 @@ class EventManagement(ctk.CTkFrame):
         organizer_wrap.pack(fill="x", pady=(0, 10))
         organizer_entry = organizer_wrap.entry
 
-        attendees_wrap = create_labeled_entry(body, "Expected Attendees", "0", str(defaults["attendees"] or ""))
-        attendees_wrap.pack(fill="x", pady=(0, 10))
-        attendees_entry = attendees_wrap.entry
-
-        status_var = ctk.StringVar(value=defaults["status"] or "Upcoming")
-        create_labeled_option(
-            body,
-            "Status",
-            ["Upcoming", "Ongoing", "Completed"],
-            variable=status_var,
-        ).pack(fill="x", pady=(0, 10))
 
         color_var = ctk.StringVar(value=defaults["color"] or "Blue")
         create_labeled_option(
@@ -521,10 +454,7 @@ class EventManagement(ctk.CTkFrame):
             except ValueError:
                 status_label.configure(text="Use YYYY-MM-DD and 24-hour HH:MM time.")
                 return
-            try:
-                attendees = int(attendees_entry.get().strip() or 0)
-            except ValueError:
-                attendees = 0
+
             if row:
                 self.db.update_event(
                     event_id,
@@ -534,8 +464,7 @@ class EventManagement(ctk.CTkFrame):
                     location=location_entry.get().strip(),
                     description=desc_entry.get().strip(),
                     organizer=organizer_entry.get().strip(),
-                    attendees=attendees,
-                    status=status_var.get(),
+                    status="Upcoming",
                     recurring=recurring_var.get(),
                     color=color_var.get(),
                 )
@@ -548,8 +477,7 @@ class EventManagement(ctk.CTkFrame):
                     location=location_entry.get().strip(),
                     description=desc_entry.get().strip(),
                     organizer=organizer_entry.get().strip(),
-                    attendees=attendees,
-                    status=status_var.get(),
+                    status="Upcoming",
                     recurring=recurring_var.get(),
                     color=color_var.get(),
                 )
@@ -648,15 +576,90 @@ class EventManagement(ctk.CTkFrame):
     def _table_header(self, parent, headers, weights):
         header = ctk.CTkFrame(parent, fg_color=THEME["table_header"])
         header.pack(fill="x", padx=1)
-        for col, (text, weight) in enumerate(zip(headers, weights)):
-            header.grid_columnconfigure(col, weight=weight)
+
+        minsizes = [100, 45, 100, 80, 70, 550]
+
+        for col, (text, weight, min_w) in enumerate(zip(headers, weights, minsizes)):
+            header.grid_columnconfigure(col, weight=weight, minsize=min_w)
             ctk.CTkLabel(
                 header,
                 text=text,
                 font=font(11, "bold"),
                 text_color=THEME["text_sub"],
                 anchor="w",
-            ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+            ).grid(row=0, column=col, sticky="ew", padx=6, pady=8)
+
+    def _event_row(self, parent, row_data, idx):
+        try:
+            event_id = row_data[0]
+            name = row_data[1] if len(row_data) > 1 else "Unnamed"
+            start_date = row_data[2] if len(row_data) > 2 else ""
+            event_time = row_data[3] if len(row_data) > 3 else "09:00"
+            location = row_data[5] if len(row_data) > 5 else ""
+            description = row_data[6] if len(row_data) > 6 else ""
+
+            row = ctk.CTkFrame(
+                parent,
+                fg_color=THEME["input"] if idx % 2 == 0 else THEME["bg_card"],
+            )
+            row.pack(fill="x", padx=1)
+
+            weights = [1, 1, 2, 2, 1]
+            minsizes = [100, 45, 100, 80, 550]
+
+            for col, (weight, min_w) in enumerate(zip(weights, minsizes)):
+                row.grid_columnconfigure(col, weight=weight, minsize=min_w)
+
+            clean_name = str(name)[:16] + "..." if len(str(name)) > 16 else str(name)
+            raw_loc = str(location) if location else (str(description) if description else "-")
+            clean_loc = raw_loc[:16] + "..." if len(raw_loc) > 16 else raw_loc
+
+            values = [
+                str(start_date) if start_date else "-",
+                str(event_time) if event_time else "-",
+                clean_name,
+                clean_loc,
+            ]
+
+            for col, value in enumerate(values):
+                ctk.CTkLabel(
+                    row,
+                    text=value,
+                    font=font(11, "bold" if col in (1, 2) else "normal"),
+                    text_color=THEME["primary"] if col == 1 else THEME["text_main"],
+                    anchor="w",
+                ).grid(row=0, column=col, sticky="ew", padx=6, pady=8)
+
+            actions = ctk.CTkFrame(row, fg_color="transparent")
+            actions.grid(row=0, column=4, sticky="ew", padx=2, pady=6)
+
+            ctk.CTkButton(
+                actions,
+                text="Edit",
+                width=40,
+                height=26,
+                font=font(10, "bold"),
+                command=lambda eid=event_id: self._open_event_modal(eid),
+                **secondary_button_style(THEME["radius_sm"]),
+            ).pack(side="left", padx=(0, 4))
+
+            ctk.CTkButton(
+                actions,
+                text="Del",
+                width=40,
+                height=26,
+                font=font(10, "bold"),
+                fg_color=THEME["danger_soft"],
+                hover_color=THEME["danger"],
+                text_color=THEME["danger"],
+                border_width=1,
+                border_color=THEME["danger_soft"],
+                corner_radius=THEME["radius_sm"],
+                command=lambda eid=event_id: self._delete_event(eid),
+            ).pack(side="left")
+
+        except Exception as e:
+            print(f"Error loading row: {e}")
 
     def _empty(self, parent, message):
         ctk.CTkLabel(

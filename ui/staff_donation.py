@@ -556,9 +556,10 @@ class StaffDonationEntry(ctk.CTkFrame):
         self._status_label = ctk.CTkLabel(
             self.content, text="",
             font=(THEME["font_family"], 12),
-            text_color=THEME["success"]
+            text_color=THEME["success"],
+            justify="center"
         )
-        self._status_label.pack(pady=(0, 4))
+        self._status_label.pack(fill="x", pady=(0, 4))
 
     # ══════════════════════════════════════════════════
     # WARNING BANNER

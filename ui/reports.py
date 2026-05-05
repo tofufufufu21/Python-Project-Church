@@ -1,11 +1,12 @@
 import datetime
 import os
 import threading
+import subprocess
+import platform
 
 import customtkinter as ctk
 
 from core.report_engine import ReportEngine
-from ui.theme import THEME, font, input_style, primary_button_style, secondary_button_style
 from ui.components import (
     ADMIN_NAV,
     DatePickerEntry,
@@ -16,7 +17,7 @@ from ui.components import (
     create_status_badge,
     format_currency,
 )
-
+from ui.theme import THEME, font, primary_button_style, secondary_button_style
 
 REPORT_TYPES = [
     "Donation Report",
@@ -450,8 +451,19 @@ class Reports(ctk.CTkFrame):
         ).pack(pady=24)
 
     def _open_file(self, path):
+        """Safely opens the PDF on Windows, Mac, or Linux."""
         try:
-            if path and os.path.exists(path):
+            if not path or not os.path.exists(path):
+                return
+
+            current_os = platform.system()
+
+            if current_os == 'Windows':
                 os.startfile(path)
-        except Exception:
-            pass
+            elif current_os == 'Darwin':  # macOS
+                subprocess.call(('open', path))
+            else:  # Linux
+                subprocess.call(('xdg-open', path))
+
+        except Exception as e:
+            print(f"Failed to open file: {e}")
