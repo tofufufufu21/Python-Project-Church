@@ -298,12 +298,21 @@ class AdminDashboard(ctk.CTkFrame):
         row.pack(fill="x", padx=1)
         for col, (text, weight) in enumerate(zip(headers, weights)):
             row.grid_columnconfigure(col, weight=weight)
+            
+            # Center Date(0), Right-align Amount(3), Left-align rest
+            if col == 0:
+                align = "center"
+            elif col == 3:
+                align = "e"
+            else:
+                align = "w"
+                
             ctk.CTkLabel(
                 row,
                 text=text,
                 font=font(11, "bold"),
                 text_color=THEME["text_sub"],
-                anchor="w",
+                anchor=align,
             ).grid(row=0, column=col, sticky="ew", padx=14, pady=8)
 
     def _table_row(self, parent, values, weights, idx):
@@ -315,12 +324,21 @@ class AdminDashboard(ctk.CTkFrame):
         row.pack(fill="x", padx=1)
         for col, (text, weight) in enumerate(zip(values, weights)):
             row.grid_columnconfigure(col, weight=weight)
+            
+            # Center Date(0), Right-align Amount(3), Left-align rest
+            if col == 0:
+                align = "center"
+            elif col == 3:
+                align = "e"
+            else:
+                align = "w"
+                
             ctk.CTkLabel(
                 row,
                 text=str(text),
                 font=font(11, "bold" if col == len(values) - 1 else "normal"),
                 text_color=THEME["primary"] if col == len(values) - 1 else THEME["text_main"],
-                anchor="w",
+                anchor=align,
             ).grid(row=0, column=col, sticky="ew", padx=14, pady=8)
 
     def _schedule_refresh(self):
