@@ -607,12 +607,16 @@ class EventManagement(ctk.CTkFrame):
 
         for col, (text, weight, min_w) in enumerate(zip(headers, weights, minsizes)):
             header.grid_columnconfigure(col, weight=weight, minsize=min_w)
+            
+            # Align Date and Time to center, others to West (left)
+            align = "center" if col in (0, 1) else "w"
+            
             ctk.CTkLabel(
                 header,
                 text=text,
                 font=font(11, "bold"),
                 text_color=THEME["text_sub"],
-                anchor="w",
+                anchor=align,
             ).grid(row=0, column=col, sticky="ew", padx=6, pady=8)
 
     def _event_row(self, parent, row_data, idx):
@@ -648,12 +652,15 @@ class EventManagement(ctk.CTkFrame):
             ]
 
             for col, value in enumerate(values):
+                # Align Date and Time to center, others to West (left)
+                align = "center" if col in (0, 1) else "w"
+                
                 ctk.CTkLabel(
                     row,
                     text=value,
                     font=font(11, "bold" if col in (1, 2) else "normal"),
                     text_color=THEME["primary"] if col == 1 else THEME["text_main"],
-                    anchor="w",
+                    anchor=align,
                 ).grid(row=0, column=col, sticky="ew", padx=6, pady=8)
 
             actions = ctk.CTkFrame(row, fg_color="transparent")
