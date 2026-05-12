@@ -6,6 +6,7 @@ from ui.theme import THEME
 from ui.components import ADMIN_NAV, build_screen_topbar, build_sidebar
 from core.security import SecurityManager
 from ui.components import build_notification_bell
+from tkinter import messagebox
 
 class StaffControl(ctk.CTkFrame):
 
@@ -268,7 +269,7 @@ class StaffControl(ctk.CTkFrame):
             ctk.CTkLabel(badge, text=role.capitalize(),
                          font=(THEME["font_family"], 11), text_color=badge_color).pack(padx=12, pady=4)
 
-            # Edit + Delete icons
+            # Edit +  icons
             acts = ctk.CTkFrame(row_frame, fg_color="transparent")
             acts.grid(row=0, column=3, sticky="e", padx=8, pady=6)
 
@@ -285,7 +286,7 @@ class StaffControl(ctk.CTkFrame):
                 width=34, height=34, corner_radius=14,
                 fg_color="transparent", text_color=THEME["text_muted"],
                 hover_color=THEME["danger_soft"], font=(THEME["font_family"], 15),
-                command=lambda u=uid, n=username: self._confirm_delete(u, n)
+                command=lambda u=uid, n=username: self._confirm_(u, n)
             ).pack(side="left")
 
             # Row separator line
@@ -485,6 +486,22 @@ class StaffControl(ctk.CTkFrame):
                       font=(THEME["font_family"], 13, "bold"), height=46, corner_radius=14,
                       fg_color=THEME["primary"], hover_color=THEME["primary_dark"],
                       command=do_edit).pack(fill="x", padx=36, pady=(18, 0))
+
+    def save_changes():
+    # 1. Trigger the confirmation popup
+    confirm = messagebox.askyesno(
+        title="Confirm Save", 
+        message="Are you sure you want to save these changes?"
+    )
+    
+    # 2. Proceed only if the user clicks 'Yes'
+    if confirm:
+        # Your existing code to save to db_manager
+        db_manager.update_record(data)
+        messagebox.showinfo("Success", "Changes saved successfully.")
+    else:
+        # Do nothing, action cancelled
+        pass
 
     # ══════════════════════════════════════════════════
     # DELETE CONFIRM
