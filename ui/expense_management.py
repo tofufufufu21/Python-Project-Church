@@ -332,7 +332,7 @@ class ExpenseManagement(ctk.CTkFrame):
         scroll = ctk.CTkScrollableFrame(self.records_card, fg_color="transparent", height=300)
         scroll.pack(fill="both", expand=True, padx=1, pady=(0, 12))
         for idx, row_data in enumerate(rows):
-            self._record_row(scroll, row_data, idx)
+            self.(scroll, row_data, idx)
 
     def save_changes():
     # 1. Trigger the confirmation popup
@@ -370,17 +370,27 @@ class ExpenseManagement(ctk.CTkFrame):
         ]
         for col, (value, weight) in enumerate(zip(values, weights)):
             row.grid_columnconfigure(col, weight=weight)
+            
+            # Set alignment variables
+            if col in (0, 1, 5):
+                align = "center"
+            elif col == 3:
+                align = "e"
+            else:
+                align = "w"
+
             if col == 5:
                 cell = ctk.CTkFrame(row, fg_color="transparent")
                 cell.grid(row=0, column=col, sticky="ew", padx=8, pady=6)
-                create_status_badge(cell, value, compact=True).pack(anchor="w")
+                badge = create_status_badge(cell, value, compact=True)
+                badge.pack(anchor=align)
             else:
                 ctk.CTkLabel(
                     row,
                     text=str(value),
                     font=font(11, "bold" if col == 3 else "normal"),
                     text_color=THEME["primary"] if col == 3 else THEME["text_main"],
-                    anchor="w",
+                    anchor=align,
                 ).grid(row=0, column=col, sticky="ew", padx=10, pady=8)
 
     def _confirm_approve(self, expense_id, amount, submitted_by=None):
@@ -511,12 +521,21 @@ class ExpenseManagement(ctk.CTkFrame):
         header.pack(fill="x", padx=1)
         for col, (text, weight) in enumerate(zip(headers, weights)):
             header.grid_columnconfigure(col, weight=weight)
+            
+            # Center ID(0), Date(1), Status(5). Right-align Amount(3). Left-align rest.
+            if col in (0, 1, 5):
+                align = "center"
+            elif col == 3:
+                align = "e"
+            else:
+                align = "w"
+                
             ctk.CTkLabel(
                 header,
                 text=text,
                 font=font(11, "bold"),
                 text_color=THEME["text_sub"],
-                anchor="w",
+                anchor=align,
             ).grid(row=0, column=col, sticky="ew", padx=10, pady=8)
 
     def _empty(self, parent, text, danger=False):
