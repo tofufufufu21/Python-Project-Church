@@ -472,6 +472,15 @@ class EventManagement(ctk.CTkFrame):
                 status_label.configure(text="Use YYYY-MM-DD and 24-hour HH:MM time.")
                 return
 
+            # --- ADDED CONFIRMATION POPUP ---
+            confirm = messagebox.askyesno(
+                "Confirm Save", 
+                "Are you sure you want to save this event?"
+            )
+            if not confirm:
+                return
+            # --------------------------------
+
             if row:
                 self.db.update_event(
                     event_id,
