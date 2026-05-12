@@ -1,6 +1,7 @@
 import calendar
 import datetime
 from collections import defaultdict
+from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -323,6 +324,22 @@ class EventManagement(ctk.CTkFrame):
                     command=lambda dt=date_value: self._filter_specific_date(dt),
                 )
                 cell.grid(row=week_index, column=day_index, padx=3, pady=3, sticky="nsew")
+
+    def save_changes():
+    # 1. Trigger the confirmation popup
+    confirm = messagebox.askyesno(
+        title="Confirm Save", 
+        message="Are you sure you want to save these changes?"
+    )
+    
+    # 2. Proceed only if the user clicks 'Yes'
+    if confirm:
+        # Your existing code to save to db_manager
+        db_manager.update_record(data)
+        messagebox.showinfo("Success", "Changes saved successfully.")
+    else:
+        # Do nothing, action cancelled
+        pass
 
     def _render_records(self, rows, start, end, timing):
         header = ctk.CTkFrame(self.records_card, fg_color="transparent")
