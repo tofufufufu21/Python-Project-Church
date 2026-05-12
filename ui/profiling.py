@@ -1,6 +1,7 @@
 import datetime
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import messagebox
 
 from ui.theme import THEME, font, primary_button_style, secondary_button_style, input_style
 from ui.components import (
@@ -628,6 +629,11 @@ class ProfilingScreen(ctk.CTkFrame):
                 church_wedding=entries["church_wedding"].get(),
                 notes=entries["notes"].get().strip(),
             )
+            if not messagebox.askyesno(
+                "Confirm Member Record",
+                "Save this member record?",
+            ):
+                return
             try:
                 if row:
                     self.db.update_member(member_id, **kwargs)
@@ -956,12 +962,20 @@ class ProfilingScreen(ctk.CTkFrame):
                     text_color=THEME["danger"],
                     hover_color=THEME["danger_soft"],
                     command=lambda s=sid: (
-                        self.db.delete_sacrament(s),
+                        messagebox.askyesno(
+                            "Confirm Delete",
+                            "Delete this sacrament record?",
+                        ) and self.db.delete_sacrament(s),
                         _reload_sacs()
                     )
                 ).pack(anchor="w")
 
         def _add_sac():
+            if not messagebox.askyesno(
+                "Confirm Sacrament Record",
+                "Add this sacrament record?",
+            ):
+                return
             self.db.save_sacrament(
                 member_id,
                 sac_type_var.get(),
@@ -1111,12 +1125,20 @@ class ProfilingScreen(ctk.CTkFrame):
                     text_color=THEME["danger"],
                     hover_color=THEME["danger_soft"],
                     command=lambda a=aid: (
-                        self.db.delete_attendance(a),
+                        messagebox.askyesno(
+                            "Confirm Delete",
+                            "Delete this attendance record?",
+                        ) and self.db.delete_attendance(a),
                         _reload_att()
                     )
                 ).pack(anchor="w")
 
         def _add_att():
+            if not messagebox.askyesno(
+                "Confirm Attendance",
+                "Log this attendance record?",
+            ):
+                return
             self.db.save_attendance(
                 member_id, att_type_var.get(),
                 att_date.get().strip(),
@@ -1330,6 +1352,11 @@ class ProfilingScreen(ctk.CTkFrame):
         def _add_family():
             name = name_entry.get().strip()
             if not name:
+                return
+            if not messagebox.askyesno(
+                "Confirm Family Group",
+                'Create family group "{}"?'.format(name),
+            ):
                 return
             self.db.save_family(
                 name, addr_entry.get().strip()

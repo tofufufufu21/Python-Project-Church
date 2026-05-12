@@ -8,10 +8,12 @@ import customtkinter as ctk
 from ui.theme import (
     THEME,
     card_style,
+    get_theme_mode,
     input_style,
     primary_button_style,
     secondary_button_style,
     font,
+    toggle_theme_mode,
 )
 
 
@@ -228,7 +230,7 @@ def build_sidebar(parent, nav_items, active_item, on_logout, on_navigate=None):
         text_color=THEME["danger"],
         hover_color=THEME["sidebar_hover"],
         anchor="w",
-        font=font(12, "bold"),
+        font=font(13, "bold"),
         height=38,
         corner_radius=16,
         border_width=1,
@@ -312,7 +314,7 @@ def create_section_header(parent, title, subtitle=None):
     ctk.CTkLabel(
         header,
         text=title,
-        font=font(28, "bold"),
+        font=font(30, "bold"),
         text_color=THEME["text_main"],
         anchor="w",
     ).pack(anchor="w")
@@ -320,7 +322,7 @@ def create_section_header(parent, title, subtitle=None):
         ctk.CTkLabel(
             header,
             text=subtitle,
-            font=font(12),
+            font=font(13),
             text_color=THEME["text_sub"],
             anchor="w",
         ).pack(anchor="w", pady=(3, 0))
@@ -473,7 +475,7 @@ def create_labeled_entry(parent, label, placeholder="", initial="", width=None):
     ctk.CTkLabel(
         wrap,
         text=label,
-        font=font(11, "bold"),
+        font=font(12, "bold"),
         text_color=THEME["text_sub"],
         anchor="w",
     ).pack(anchor="w", pady=(0, 4))
@@ -498,7 +500,7 @@ def create_labeled_option(parent, label, values, variable=None, command=None, wi
     ctk.CTkLabel(
         wrap,
         text=label,
-        font=font(11, "bold"),
+        font=font(12, "bold"),
         text_color=THEME["text_sub"],
         anchor="w",
     ).pack(anchor="w", pady=(0, 4))
@@ -826,7 +828,7 @@ def build_screen_topbar(
     ctk.CTkLabel(
         left,
         text=title,
-        font=font(20, "bold"),
+        font=font(22, "bold"),
         text_color=THEME["text_main"],
         anchor="w",
     ).pack(anchor="w")
@@ -834,7 +836,7 @@ def build_screen_topbar(
         ctk.CTkLabel(
             left,
             text=subtitle,
-            font=font(10),
+            font=font(12),
             text_color=THEME["text_sub"],
             anchor="w",
         ).pack(anchor="w", pady=(2, 0))
@@ -844,6 +846,23 @@ def build_screen_topbar(
 
     if show_search:
         create_search_entry(right, search_placeholder).pack(side="left", padx=(0, 10))
+
+    def _toggle_theme():
+        toggle_theme_mode()
+        try:
+            topbar.winfo_toplevel().event_generate("<<ChurchTrackThemeChanged>>")
+        except Exception:
+            pass
+
+    ctk.CTkButton(
+        right,
+        text="Light" if get_theme_mode() == "dark" else "Dark",
+        width=72,
+        height=38,
+        font=font(11, "bold"),
+        command=_toggle_theme,
+        **secondary_button_style(THEME["radius_md"]),
+    ).pack(side="left", padx=(0, 10))
 
     bell = build_notification_bell(right, db_manager)
     bell.pack(side="left", padx=(0, 10))

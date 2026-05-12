@@ -30,6 +30,26 @@ class DatabaseManager:
             return None
         return value
 
+    def _normalize_date(self, value):
+        value = str(value or "").strip()[:10]
+        return datetime.datetime.strptime(value, "%Y-%m-%d").date().isoformat()
+
+    def _normalize_time(self, value):
+        raw = str(value or "09:00").strip().upper().replace(" ", "")
+        for fmt in ("%H:%M", "%H%M", "%I%p", "%I:%M%p"):
+            try:
+                return datetime.datetime.strptime(raw, fmt).strftime("%H:%M")
+            except ValueError:
+                pass
+        raise ValueError("Time must use HH:MM, 8AM, or 8:00AM format.")
+
+    def _column_type(self, cursor, table, column):
+        cursor.execute(f"PRAGMA table_info({table})")
+        for row in cursor.fetchall():
+            if row[1] == column:
+                return str(row[2] or "").upper()
+        return ""
+
     def _ensure_column(self, cursor, table, column, definition):
         try:
             cursor.execute(f"PRAGMA table_info({table})")
@@ -41,6 +61,264 @@ class DatabaseManager:
         except Exception:
             pass
 
+    def _rebuild_table_if_needed(self, cursor, table, expected_types,
+                                 create_sql, columns):
+        needs_rebuild = False
+        for column, expected_type in expected_types.items():
+            if self._column_type(cursor, table, column) != expected_type:
+                needs_rebuild = True
+                break
+        if not needs_rebuild:
+            return
+
+        temp_table = table + "_typed_migration"
+        column_list = ", ".join(columns)
+        cursor.execute(f"DROP TABLE IF EXISTS {temp_table}")
+        cursor.execute(create_sql.format(table=temp_table))
+        cursor.execute(f"""
+            INSERT INTO {temp_table} ({column_list})
+            SELECT {column_list}
+            FROM {table}
+        """)
+        cursor.execute(f"DROP TABLE {table}")
+        cursor.execute(f"ALTER TABLE {temp_table} RENAME TO {table}")
+
+    def _rebuild_date_typed_tables(self, cursor):
+        cursor.execute("PRAGMA foreign_keys=OFF")
+        self._rebuild_table_if_needed(
+            cursor,
+            "transactions",
+            {"date": "DATE"},
+            """
+            CREATE TABLE {table} (
+                trans_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                date       DATE NOT NULL,
+                donor_name TEXT,
+                category   TEXT NOT NULL,
+                amount     REAL NOT NULL,
+                type       TEXT NOT NULL DEFAULT 'INFLOW',
+                remarks    TEXT,
+                user_id    INTEGER
+            )
+            """,
+            ["trans_id", "date", "donor_name", "category",
+             "amount", "type", "remarks", "user_id"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "mass_intentions",
+            {"mass_date": "DATE"},
+            """
+            CREATE TABLE {table} (
+                intention_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                trans_id       INTEGER,
+                intention_type TEXT,
+                offered_for    TEXT,
+                mass_date      DATE,
+                mass_time      TEXT,
+                FOREIGN KEY (trans_id) REFERENCES transactions(trans_id)
+            )
+            """,
+            ["intention_id", "trans_id", "intention_type",
+             "offered_for", "mass_date", "mass_time"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "events",
+            {"start_date": "DATE", "end_date": "DATE"},
+            """
+            CREATE TABLE {table} (
+                event_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                name        TEXT NOT NULL,
+                start_date  DATE NOT NULL,
+                end_date    DATE,
+                recurring   INTEGER DEFAULT 0,
+                color       TEXT DEFAULT 'Blue',
+                description TEXT DEFAULT '',
+                organizer   TEXT DEFAULT '',
+                location    TEXT DEFAULT '',
+                attendees   INTEGER DEFAULT 0,
+                status      TEXT DEFAULT 'Upcoming',
+                event_time  TEXT DEFAULT '09:00'
+            )
+            """,
+            ["event_id", "name", "start_date", "end_date", "recurring",
+             "color", "description", "organizer", "location", "attendees",
+             "status", "event_time"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "expenses",
+            {"date": "DATE", "approved_at": "TIMESTAMP",
+             "requested_at": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                expense_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                date         DATE NOT NULL,
+                category     TEXT NOT NULL,
+                amount       REAL NOT NULL,
+                reason       TEXT NOT NULL,
+                status       TEXT NOT NULL DEFAULT 'PENDING',
+                submitted_by TEXT,
+                approved_by  TEXT,
+                approved_at  TIMESTAMP,
+                description  TEXT DEFAULT '',
+                requested_at TIMESTAMP
+            )
+            """,
+            ["expense_id", "date", "category", "amount", "reason",
+             "status", "submitted_by", "approved_by", "approved_at",
+             "description", "requested_at"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "audit_trail",
+            {"timestamp": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                log_id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id   INTEGER,
+                action    TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
+                details   TEXT
+            )
+            """,
+            ["log_id", "user_id", "action", "timestamp", "details"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "generated_reports",
+            {"start_date": "DATE", "end_date": "DATE",
+             "generated_at": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                report_id      INTEGER PRIMARY KEY AUTOINCREMENT,
+                report_type    TEXT NOT NULL,
+                start_date     DATE,
+                end_date       DATE,
+                generated_by   TEXT,
+                generated_role TEXT,
+                generated_at   TIMESTAMP NOT NULL,
+                file_path      TEXT,
+                filters        TEXT
+            )
+            """,
+            ["report_id", "report_type", "start_date", "end_date",
+             "generated_by", "generated_role", "generated_at",
+             "file_path", "filters"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "staff_activity",
+            {"timestamp": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                activity_id     INTEGER PRIMARY KEY AUTOINCREMENT,
+                staff_username  TEXT NOT NULL,
+                action          TEXT NOT NULL,
+                affected_record TEXT,
+                timestamp       TIMESTAMP NOT NULL,
+                status          TEXT NOT NULL DEFAULT 'Success',
+                details         TEXT
+            )
+            """,
+            ["activity_id", "staff_username", "action", "affected_record",
+             "timestamp", "status", "details"],
+        )
+
+    def _rebuild_member_date_typed_tables(self, cursor):
+        self._rebuild_table_if_needed(
+            cursor,
+            "member_families",
+            {"created_at": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                family_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                family_name TEXT NOT NULL,
+                address     TEXT DEFAULT '',
+                created_at  TIMESTAMP
+            )
+            """,
+            ["family_id", "family_name", "address", "created_at"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "members",
+            {"date_of_birth": "DATE", "date_joined": "DATE",
+             "created_at": "TIMESTAMP"},
+            """
+            CREATE TABLE {table} (
+                member_id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                full_name            TEXT NOT NULL,
+                nickname             TEXT DEFAULT '',
+                date_of_birth        DATE,
+                gender               TEXT DEFAULT '',
+                civil_status         TEXT DEFAULT '',
+                address              TEXT DEFAULT '',
+                contact_number       TEXT DEFAULT '',
+                email                TEXT DEFAULT '',
+                date_joined          DATE,
+                ministry             TEXT DEFAULT '',
+                role                 TEXT DEFAULT 'Member',
+                is_active            INTEGER DEFAULT 1,
+                family_id            INTEGER,
+                is_head_of_family    INTEGER DEFAULT 0,
+                baptism_date         DATE,
+                confirmation_date    DATE,
+                first_communion_date DATE,
+                marriage_date        DATE,
+                anointing_date       DATE,
+                church_wedding       INTEGER DEFAULT 0,
+                notes                TEXT DEFAULT '',
+                created_at           TIMESTAMP,
+                FOREIGN KEY (family_id) REFERENCES member_families(family_id)
+            )
+            """,
+            ["member_id", "full_name", "nickname", "date_of_birth",
+             "gender", "civil_status", "address", "contact_number",
+             "email", "date_joined", "ministry", "role", "is_active",
+             "family_id", "is_head_of_family", "baptism_date",
+             "confirmation_date", "first_communion_date", "marriage_date",
+             "anointing_date", "church_wedding", "notes", "created_at"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "member_sacraments",
+            {"sacrament_date": "DATE"},
+            """
+            CREATE TABLE {table} (
+                sacrament_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id          INTEGER NOT NULL,
+                sacrament_type     TEXT NOT NULL,
+                sacrament_date     DATE,
+                officiating_priest TEXT DEFAULT '',
+                location           TEXT DEFAULT '',
+                notes              TEXT DEFAULT '',
+                FOREIGN KEY (member_id) REFERENCES members(member_id)
+            )
+            """,
+            ["sacrament_id", "member_id", "sacrament_type",
+             "sacrament_date", "officiating_priest", "location", "notes"],
+        )
+        self._rebuild_table_if_needed(
+            cursor,
+            "member_attendance",
+            {"attendance_date": "DATE"},
+            """
+            CREATE TABLE {table} (
+                attendance_id   INTEGER PRIMARY KEY AUTOINCREMENT,
+                member_id       INTEGER NOT NULL,
+                attendance_type TEXT NOT NULL,
+                event_name      TEXT DEFAULT '',
+                attendance_date DATE NOT NULL,
+                notes           TEXT DEFAULT '',
+                FOREIGN KEY (member_id) REFERENCES members(member_id)
+            )
+            """,
+            ["attendance_id", "member_id", "attendance_type",
+             "event_name", "attendance_date", "notes"],
+        )
+
     def _init_database(self):
         conn = self._get_connection()
         cursor = conn.cursor()
@@ -51,14 +329,14 @@ class DatabaseManager:
                 username                 TEXT NOT NULL UNIQUE,
                 password                 TEXT NOT NULL,
                 role                     TEXT NOT NULL DEFAULT 'staff',
-                last_password_changed_at TEXT
+                last_password_changed_at TIMESTAMP
             )
         """)
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 trans_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                date       TEXT NOT NULL,
+                date       DATE NOT NULL,
                 donor_name TEXT,
                 category   TEXT NOT NULL,
                 amount     REAL NOT NULL,
@@ -74,7 +352,7 @@ class DatabaseManager:
                 trans_id       INTEGER,
                 intention_type TEXT,
                 offered_for    TEXT,
-                mass_date      TEXT,
+                mass_date      DATE,
                 mass_time      TEXT,
                 FOREIGN KEY (trans_id)
                     REFERENCES transactions(trans_id)
@@ -85,8 +363,8 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS events (
                 event_id   INTEGER PRIMARY KEY AUTOINCREMENT,
                 name       TEXT NOT NULL,
-                start_date TEXT NOT NULL,
-                end_date   TEXT,
+                start_date DATE NOT NULL,
+                end_date   DATE,
                 recurring  INTEGER DEFAULT 0
             )
         """)
@@ -96,7 +374,7 @@ class DatabaseManager:
                 log_id    INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id   INTEGER,
                 action    TEXT NOT NULL,
-                timestamp TEXT NOT NULL,
+                timestamp TIMESTAMP NOT NULL,
                 details   TEXT
             )
         """)
@@ -104,14 +382,14 @@ class DatabaseManager:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS expenses (
                 expense_id   INTEGER PRIMARY KEY AUTOINCREMENT,
-                date         TEXT NOT NULL,
+                date         DATE NOT NULL,
                 category     TEXT NOT NULL,
                 amount       REAL NOT NULL,
                 reason       TEXT NOT NULL,
                 status       TEXT NOT NULL DEFAULT 'PENDING',
                 submitted_by TEXT,
                 approved_by  TEXT,
-                approved_at  TEXT
+                approved_at  TIMESTAMP
             )
         """)
 
@@ -152,7 +430,7 @@ class DatabaseManager:
                 family_id   INTEGER PRIMARY KEY AUTOINCREMENT,
                 family_name TEXT NOT NULL,
                 address     TEXT DEFAULT '',
-                created_at  TEXT
+                created_at  TIMESTAMP
             )
         """)
 
@@ -161,26 +439,26 @@ class DatabaseManager:
                 member_id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 full_name            TEXT NOT NULL,
                 nickname             TEXT DEFAULT '',
-                date_of_birth        TEXT,
+                date_of_birth        DATE,
                 gender               TEXT DEFAULT '',
                 civil_status         TEXT DEFAULT '',
                 address              TEXT DEFAULT '',
                 contact_number       TEXT DEFAULT '',
                 email                TEXT DEFAULT '',
-                date_joined          TEXT,
+                date_joined          DATE,
                 ministry             TEXT DEFAULT '',
                 role                 TEXT DEFAULT 'Member',
                 is_active            INTEGER DEFAULT 1,
                 family_id            INTEGER,
                 is_head_of_family    INTEGER DEFAULT 0,
-                baptism_date         TEXT,
-                confirmation_date    TEXT,
-                first_communion_date TEXT,
-                marriage_date        TEXT,
-                anointing_date       TEXT,
+                baptism_date         DATE,
+                confirmation_date    DATE,
+                first_communion_date DATE,
+                marriage_date        DATE,
+                anointing_date       DATE,
                 church_wedding       INTEGER DEFAULT 0,
                 notes                TEXT DEFAULT '',
-                created_at           TEXT,
+                created_at           TIMESTAMP,
                 FOREIGN KEY (family_id)
                     REFERENCES member_families(family_id)
             )
@@ -191,7 +469,7 @@ class DatabaseManager:
                 sacrament_id       INTEGER PRIMARY KEY AUTOINCREMENT,
                 member_id          INTEGER NOT NULL,
                 sacrament_type     TEXT NOT NULL,
-                sacrament_date     TEXT,
+                sacrament_date     DATE,
                 officiating_priest TEXT DEFAULT '',
                 location           TEXT DEFAULT '',
                 notes              TEXT DEFAULT '',
@@ -206,15 +484,16 @@ class DatabaseManager:
                 member_id       INTEGER NOT NULL,
                 attendance_type TEXT NOT NULL,
                 event_name      TEXT DEFAULT '',
-                attendance_date TEXT NOT NULL,
+                attendance_date DATE NOT NULL,
                 notes           TEXT DEFAULT '',
                 FOREIGN KEY (member_id)
                     REFERENCES members(member_id)
             )
         """)
+        self._rebuild_member_date_typed_tables(cursor)
 
     def _run_migrations(self, cursor):
-        self._ensure_column(cursor, "users", "last_password_changed_at", "TEXT")
+        self._ensure_column(cursor, "users", "last_password_changed_at", "TIMESTAMP")
         self._ensure_column(cursor, "events", "event_time", "TEXT DEFAULT '09:00'")
         self._ensure_column(cursor, "events", "description", "TEXT DEFAULT ''")
         self._ensure_column(cursor, "events", "organizer", "TEXT DEFAULT ''")
@@ -223,7 +502,7 @@ class DatabaseManager:
         self._ensure_column(cursor, "events", "status", "TEXT DEFAULT 'Upcoming'")
         self._ensure_column(cursor, "events", "color", "TEXT DEFAULT 'Blue'")
         self._ensure_column(cursor, "expenses", "description", "TEXT DEFAULT ''")
-        self._ensure_column(cursor, "expenses", "requested_at", "TEXT")
+        self._ensure_column(cursor, "expenses", "requested_at", "TIMESTAMP")
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS expense_budgets (
@@ -231,7 +510,7 @@ class DatabaseManager:
                 category      TEXT NOT NULL UNIQUE,
                 budget_amount REAL NOT NULL DEFAULT 0,
                 period        TEXT NOT NULL DEFAULT 'MONTHLY',
-                updated_at    TEXT NOT NULL
+                updated_at    TIMESTAMP NOT NULL
             )
         """)
 
@@ -239,11 +518,11 @@ class DatabaseManager:
             CREATE TABLE IF NOT EXISTS generated_reports (
                 report_id      INTEGER PRIMARY KEY AUTOINCREMENT,
                 report_type    TEXT NOT NULL,
-                start_date     TEXT,
-                end_date       TEXT,
+                start_date     DATE,
+                end_date       DATE,
                 generated_by   TEXT,
                 generated_role TEXT,
-                generated_at   TEXT NOT NULL,
+                generated_at   TIMESTAMP NOT NULL,
                 file_path      TEXT,
                 filters        TEXT
             )
@@ -255,19 +534,33 @@ class DatabaseManager:
                 staff_username  TEXT NOT NULL,
                 action          TEXT NOT NULL,
                 affected_record TEXT,
-                timestamp       TEXT NOT NULL,
+                timestamp       TIMESTAMP NOT NULL,
                 status          TEXT NOT NULL DEFAULT 'Success',
                 details         TEXT
             )
         """)
 
         cursor.execute("""
+            UPDATE events
+            SET event_time = '09:00'
+            WHERE event_time IS NULL OR TRIM(event_time) = ''
+        """)
+        self._rebuild_date_typed_tables(cursor)
+        try:
+            cursor.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_events_start_date_time
+                ON events(start_date, event_time)
+            """)
+        except sqlite3.IntegrityError:
+            pass
+
+        cursor.execute("""
             CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 token_id   INTEGER PRIMARY KEY AUTOINCREMENT,
                 username   TEXT NOT NULL,
                 token      TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
                 used       INTEGER DEFAULT 0
             )
         """)
@@ -613,6 +906,7 @@ class DatabaseManager:
 
     def save_transaction(self, date, donor_name, category,
                          amount, remarks="", user_id=None):
+        date = self._normalize_date(date)
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""
@@ -793,8 +1087,31 @@ class DatabaseManager:
 
     def save_expense_request(self, date, category, amount,
                               reason, submitted_by=None):
+        date = self._normalize_date(date)
+        amount = float(amount or 0)
+        category = (category or "").strip()
+        reason = (reason or "").strip()
+        submitted_by = (submitted_by or "").strip() or None
         conn = self._get_connection()
         cursor = conn.cursor()
+        cursor.execute("""
+            SELECT expense_id
+            FROM expenses
+            WHERE status = 'PENDING'
+            AND date(date) = date(?)
+            AND category = ?
+            AND amount = ?
+            AND reason = ?
+            AND COALESCE(submitted_by, '') = COALESCE(?, '')
+            LIMIT 1
+        """, (date, category, amount, reason, submitted_by))
+        duplicate = cursor.fetchone()
+        if duplicate:
+            conn.close()
+            raise ValueError(
+                "A matching pending request already exists "
+                "(Expense ID {}).".format(duplicate[0])
+            )
         cursor.execute("""
             INSERT INTO expenses
                 (date, category, amount, reason, status,
@@ -1105,12 +1422,55 @@ class DatabaseManager:
 
     # ─── EVENTS ───────────────────────────────────────
 
+    def _find_event_slot_conflict(self, cursor, start_date, event_time,
+                                  exclude_event_id=None):
+        start_date = self._normalize_date(start_date)
+        event_time = self._normalize_time(event_time)
+        params = [start_date]
+        clauses = ["date(start_date) = date(?)"]
+        if exclude_event_id is not None:
+            clauses.append("event_id <> ?")
+            params.append(exclude_event_id)
+        cursor.execute("""
+            SELECT event_id, name, start_date, event_time
+            FROM events
+            WHERE """ + " AND ".join(clauses) + """
+            ORDER BY event_id ASC
+        """, params)
+        for event_id, name, row_date, row_time in cursor.fetchall():
+            try:
+                normalized_row_time = self._normalize_time(row_time)
+            except ValueError:
+                normalized_row_time = str(row_time or "").strip()
+            if str(row_date)[:10] == start_date and normalized_row_time == event_time:
+                return event_id, name, row_date, row_time
+        return None
+
+    def get_event_slot_conflict(self, start_date, event_time,
+                                exclude_event_id=None):
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        conflict = self._find_event_slot_conflict(
+            cursor, start_date, event_time, exclude_event_id
+        )
+        conn.close()
+        return conflict
+
     def save_event(self, name, start_date, event_time="09:00",
                    end_date=None, location="", description="",
                    recurring=0, organizer="", attendees=0,
                    status="Upcoming", color="Blue"):
+        start_date = self._normalize_date(start_date)
+        end_date = self._normalize_date(end_date) if end_date else None
+        event_time = self._normalize_time(event_time)
         conn = self._get_connection()
         cursor = conn.cursor()
+        conflict = self._find_event_slot_conflict(cursor, start_date, event_time)
+        if conflict:
+            conn.close()
+            raise ValueError(
+                "This date and time is already booked by '{}'.".format(conflict[1])
+            )
         cursor.execute("""
             INSERT INTO events
                 (name, start_date, event_time, end_date, recurring,
@@ -1132,8 +1492,19 @@ class DatabaseManager:
                      location="", description="", recurring=0,
                      organizer="", attendees=0,
                      status="Upcoming", color="Blue"):
+        start_date = self._normalize_date(start_date)
+        end_date = self._normalize_date(end_date) if end_date else None
+        event_time = self._normalize_time(event_time)
         conn = self._get_connection()
         cursor = conn.cursor()
+        conflict = self._find_event_slot_conflict(
+            cursor, start_date, event_time, exclude_event_id=event_id
+        )
+        if conflict:
+            conn.close()
+            raise ValueError(
+                "This date and time is already booked by '{}'.".format(conflict[1])
+            )
         cursor.execute("""
             UPDATE events
             SET name=?, start_date=?, event_time=?,
@@ -1310,6 +1681,8 @@ class DatabaseManager:
     def record_generated_report(self, report_type, start_date, end_date,
                                 generated_by, generated_role,
                                 file_path="", filters=""):
+        start_date = self._normalize_date(start_date) if start_date else None
+        end_date = self._normalize_date(end_date) if end_date else None
         conn = self._get_connection()
         cursor = conn.cursor()
         cursor.execute("""

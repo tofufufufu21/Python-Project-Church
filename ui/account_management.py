@@ -380,6 +380,11 @@ class StaffControl(ctk.CTkFrame):
             if not result["valid"]:
                 status.configure(text=result["errors"][0])
                 return
+            if not messagebox.askyesno(
+                "Confirm Account Creation",
+                'Create account "{}"?'.format(u),
+            ):
+                return
             try:
                 self.db.create_user(u, p, role_var.get())
                 modal.destroy()
@@ -473,6 +478,11 @@ class StaffControl(ctk.CTkFrame):
                 if not result["valid"]:
                     status.configure(text=result["errors"][0])
                     return
+            if not messagebox.askyesno(
+                "Confirm Account Changes",
+                'Save changes for "{}"?'.format(username),
+            ):
+                return
             try:
                 self.db.update_user_account(user_id, new_role, new_pwd or None)
                 modal.destroy()
@@ -486,22 +496,6 @@ class StaffControl(ctk.CTkFrame):
                       font=(THEME["font_family"], 13, "bold"), height=46, corner_radius=14,
                       fg_color=THEME["primary"], hover_color=THEME["primary_dark"],
                       command=do_edit).pack(fill="x", padx=36, pady=(18, 0))
-
-    def save_changes():
-    # 1. Trigger the confirmation popup
-    confirm = messagebox.askyesno(
-        title="Confirm Save", 
-        message="Are you sure you want to save these changes?"
-    )
-    
-    # 2. Proceed only if the user clicks 'Yes'
-    if confirm:
-        # Your existing code to save to db_manager
-        db_manager.update_record(data)
-        messagebox.showinfo("Success", "Changes saved successfully.")
-    else:
-        # Do nothing, action cancelled
-        pass
 
     # ══════════════════════════════════════════════════
     # DELETE CONFIRM

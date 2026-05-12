@@ -2,6 +2,7 @@ import customtkinter as ctk
 import tkinter as tk
 import datetime
 import os
+from tkinter import messagebox
 from PIL import Image, ImageTk
 from ui.theme import THEME
 from ui.components import DatePickerEntry, build_notification_bell, build_screen_topbar, polish_interactions
@@ -19,6 +20,13 @@ NAV_ICONS_STAFF = {
     "Event Calendar":  "🗓",
     "Expense Request": "📝",
     "Basic Reports":   "📑",
+}
+
+NAV_ICONS_STAFF = {
+    "Donation Entry": "DN",
+    "Event Calendar": "EC",
+    "Expense Request": "ER",
+    "Basic Reports": "BR",
 }
 
 DONATION_CATEGORIES = [
@@ -76,8 +84,10 @@ class StaffDonationEntry(ctk.CTkFrame):
             _last[0] = w; _last[1] = h
             grad.delete("grad")
             if w < 2 or h < 2: return
-            r1, g1, b1 = 0x0B, 0x10, 0x20
-            r2, g2, b2 = 0x11, 0x18, 0x27
+            start = THEME["sidebar"].lstrip("#")
+            end = THEME["sidebar_alt"].lstrip("#")
+            r1, g1, b1 = int(start[0:2], 16), int(start[2:4], 16), int(start[4:6], 16)
+            r2, g2, b2 = int(end[0:2], 16), int(end[2:4], 16), int(end[4:6], 16)
             for i in range(0, max(h, 1), 4):
                 t = i / max(h, 1)
                 color = "#{:02x}{:02x}{:02x}".format(
@@ -656,6 +666,12 @@ class StaffDonationEntry(ctk.CTkFrame):
         )
         if notes:
             remarks += " | Notes: " + notes
+
+        if not messagebox.askyesno(
+            "Confirm Donation Entry",
+            "Save this donation entry for {}?".format(donor),
+        ):
+            return
 
         trans_id = self.db.save_transaction(
             date, donor, cat, amount_val, remarks

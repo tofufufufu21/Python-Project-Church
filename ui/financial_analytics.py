@@ -1,5 +1,6 @@
 import datetime
 from collections import defaultdict
+from tkinter import messagebox
 
 import customtkinter as ctk
 import matplotlib.ticker as mticker
@@ -422,6 +423,11 @@ class FinancialAnalytics(ctk.CTkFrame):
                 text="Enter a valid budget amount.",
                 text_color=THEME["danger"],
             )
+            return
+        if not messagebox.askyesno(
+            "Confirm Budget Change",
+            "Save this budget for {}?".format(self.budget_category_var.get()),
+        ):
             return
         self.db.set_category_budget(self.budget_category_var.get(), amount)
         self.budget_status.configure(

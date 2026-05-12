@@ -325,22 +325,6 @@ class EventManagement(ctk.CTkFrame):
                 )
                 cell.grid(row=week_index, column=day_index, padx=3, pady=3, sticky="nsew")
 
-    def save_changes():
-    # 1. Trigger the confirmation popup
-    confirm = messagebox.askyesno(
-        title="Confirm Save", 
-        message="Are you sure you want to save these changes?"
-    )
-    
-    # 2. Proceed only if the user clicks 'Yes'
-    if confirm:
-        # Your existing code to save to db_manager
-        db_manager.update_record(data)
-        messagebox.showinfo("Success", "Changes saved successfully.")
-    else:
-        # Do nothing, action cancelled
-        pass
-
     def _render_records(self, rows, start, end, timing):
         header = ctk.CTkFrame(self.records_card, fg_color="transparent")
         header.pack(fill="x", padx=18, pady=(16, 8))
@@ -466,48 +450,59 @@ class EventManagement(ctk.CTkFrame):
                 status_label.configure(text="Event name is required.")
                 return
             try:
-                datetime.datetime.strptime(date_value, "%Y-%m-%d")
-                datetime.datetime.strptime(time_value, "%H:%M")
-            except ValueError:
-                status_label.configure(text="Use YYYY-MM-DD and 24-hour HH:MM time.")
+                date_value = self.db._normalize_date(date_value)
+                time_value = self.db._normalize_time(time_value)
+            except ValueError as error:
+                status_label.configure(text=str(error))
                 return
 
-            # --- ADDED CONFIRMATION POPUP ---
+            conflict = self.db.get_event_slot_conflict(
+                date_value, time_value, event_id if row else None
+            )
+            if conflict:
+                status_label.configure(
+                    text="Already booked: {} at {}.".format(conflict[1], time_value)
+                )
+                return
+
             confirm = messagebox.askyesno(
-                "Confirm Save", 
+                "Confirm Save",
                 "Are you sure you want to save this event?"
             )
             if not confirm:
                 return
-            # --------------------------------
 
-            if row:
-                self.db.update_event(
-                    event_id,
-                    name,
-                    date_value,
-                    time_value,
-                    location=location_entry.get().strip(),
-                    description=desc_entry.get().strip(),
-                    organizer=organizer_entry.get().strip(),
-                    status="Upcoming",
-                    recurring=recurring_var.get(),
-                    color=color_var.get(),
-                )
-                self.db.log_action("admin", "UPDATE_EVENT", "Event ID {}".format(event_id))
-            else:
-                new_id = self.db.save_event(
-                    name,
-                    date_value,
-                    time_value,
-                    location=location_entry.get().strip(),
-                    description=desc_entry.get().strip(),
-                    organizer=organizer_entry.get().strip(),
-                    status="Upcoming",
-                    recurring=recurring_var.get(),
-                    color=color_var.get(),
-                )
-                self.db.log_action("admin", "CREATE_EVENT", "Event ID {}".format(new_id))
+            try:
+                if row:
+                    self.db.update_event(
+                        event_id,
+                        name,
+                        date_value,
+                        time_value,
+                        location=location_entry.get().strip(),
+                        description=desc_entry.get().strip(),
+                        organizer=organizer_entry.get().strip(),
+                        status="Upcoming",
+                        recurring=recurring_var.get(),
+                        color=color_var.get(),
+                    )
+                    self.db.log_action("admin", "UPDATE_EVENT", "Event ID {}".format(event_id))
+                else:
+                    new_id = self.db.save_event(
+                        name,
+                        date_value,
+                        time_value,
+                        location=location_entry.get().strip(),
+                        description=desc_entry.get().strip(),
+                        organizer=organizer_entry.get().strip(),
+                        status="Upcoming",
+                        recurring=recurring_var.get(),
+                        color=color_var.get(),
+                    )
+                    self.db.log_action("admin", "CREATE_EVENT", "Event ID {}".format(new_id))
+            except ValueError as error:
+                status_label.configure(text=str(error))
+                return
             modal.destroy()
             self._refresh()
 

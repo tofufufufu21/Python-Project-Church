@@ -8,7 +8,7 @@ import customtkinter as ctk
 from core.db_manager import DatabaseManager
 from core.ai_engine import AIEngine
 
-from ui.theme import THEME
+from ui.theme import THEME, get_theme_mode
 from ui.components import polish_interactions
 from ui.login_ui import LoginFrame
 from ui.dashboard import AdminDashboard
@@ -24,7 +24,6 @@ from ui.staff_donation import StaffDonationEntry
 from ui.profiling import ProfilingScreen
 
 
-ctk.set_appearance_mode("Dark")
 ctk.set_default_color_theme("dark-blue")
 
 SESSION_CHECK_MS = 60_000  # check every 60 seconds
@@ -38,6 +37,8 @@ class ChurchTrackApp(ctk.CTk):
         self.title("ChurchTrack")
         self.configure(fg_color=THEME["bg_main"])
         self.minsize(1180, 720)
+        self.current_role = None
+        self.current_admin_screen = "Dashboard"
 
         self.db_manager = DatabaseManager()
         self.ai_engine  = AIEngine(self.db_manager)
@@ -48,6 +49,7 @@ class ChurchTrackApp(ctk.CTk):
         self._session_pw_stamp  = None   # last_password_changed_at at login time
         self._session_check_job = None
 
+        self.bind("<<ChurchTrackThemeChanged>>", self._on_theme_changed)
         self.after(10, self._maximize)
         self.show_login()
 
@@ -67,6 +69,7 @@ class ChurchTrackApp(ctk.CTk):
         self._stop_session_watch()
         self._session_username = None
         self._session_pw_stamp = None
+        self.current_role = None
         self._clear()
         self.configure(fg_color=THEME["bg_main"])
         frame = LoginFrame(self, self.on_login_success, self.db_manager)
@@ -75,18 +78,31 @@ class ChurchTrackApp(ctk.CTk):
     def on_login_success(self, username, password):
         role = self.db_manager.validate_login(username, password)
         if role == "admin":
+            self.current_role = "admin"
             self._start_session_watch(username)
             self._load_admin_screen("Dashboard")
         elif role == "staff":
+            self.current_role = "staff"
             self._start_session_watch(username)
-            self._clear()
-            self.configure(fg_color=THEME["bg_main"])
-            frame = StaffDonationEntry(
-                self, self.db_manager, self.show_login
-            )
-            self.after_idle(lambda: polish_interactions(frame))
+            self._load_staff_workspace()
         else:
             raise ValueError("Invalid credentials")
+
+    def _load_staff_workspace(self):
+        self._clear()
+        self.configure(fg_color=THEME["bg_main"])
+        frame = StaffDonationEntry(self, self.db_manager, self.show_login)
+        self.after_idle(lambda: polish_interactions(frame))
+
+    def _on_theme_changed(self, _event=None):
+        self.configure(fg_color=THEME["bg_main"])
+        self.title("ChurchTrack - " + get_theme_mode().title() + " Mode")
+        if self.current_role == "admin":
+            self._load_admin_screen(self.current_admin_screen)
+        elif self.current_role == "staff":
+            self._load_staff_workspace()
+        else:
+            self.show_login()
 
     # ── Session watch ─────────────────────────────────
 
@@ -162,6 +178,8 @@ class ChurchTrackApp(ctk.CTk):
     # ── Admin screen router ───────────────────────────
 
     def _load_admin_screen(self, screen):
+        self.current_role = "admin"
+        self.current_admin_screen = screen
         self._clear()
         self.configure(fg_color=THEME["bg_main"])
 

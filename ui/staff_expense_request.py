@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import tkinter as tk
 import datetime
+from tkinter import messagebox
 from ui.theme import THEME, font, input_style
 from ui.components import DatePickerEntry, create_status_badge
 
@@ -205,6 +206,12 @@ class StaffExpenseRequest(ctk.CTkFrame):
             return
 
         try:
+            datetime.datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            self.status_msg.configure(text="Date must use YYYY-MM-DD.", text_color=THEME["danger"])
+            return
+
+        try:
             amt = float(amt_s.replace(",", ""))
             if amt <= 0: raise ValueError
         except ValueError:
@@ -212,7 +219,17 @@ class StaffExpenseRequest(ctk.CTkFrame):
             return
 
         full_reason = f"[{dept}] {purp}" if dept else purp
-        self.db.save_expense_request(date, cat, amt, full_reason, r_by)
+        if not messagebox.askyesno(
+            "Confirm Expense Request",
+            "Submit this expense request for approval?",
+        ):
+            return
+
+        try:
+            self.db.save_expense_request(date, cat, amt, full_reason, r_by)
+        except ValueError as error:
+            self.status_msg.configure(text=str(error), text_color=THEME["danger"])
+            return
 
         self.status_msg.configure(text="✓ Request submitted successfully!", text_color=THEME["success"])
         self._clear_form()

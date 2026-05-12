@@ -3,6 +3,7 @@ import os
 import threading
 import subprocess
 import platform
+from tkinter import messagebox
 
 
 import customtkinter as ctk
@@ -223,6 +224,11 @@ class StaffBasicReports(ctk.CTkFrame):
         username = self.staff_entry.get().strip() or "staff"
         report_type = self.report_type.get()
         filters = "Type: {}; Staff: {}; Date Range: {} to {}".format(report_type, username, start, end)
+        if not messagebox.askyesno(
+            "Confirm Report Export",
+            "Generate and save this {}?".format(report_type.lower()),
+        ):
+            return
         self.report_status.configure(text="Generating report...", text_color=THEME["warning"])
 
         def worker():
@@ -268,16 +274,17 @@ class StaffBasicReports(ctk.CTkFrame):
 
     def _table_header(self, parent, headers, weights):
         header = ctk.CTkFrame(parent, fg_color=THEME["table_header"])
-        header.pack(fill="x", padx=1)
-        for col, (text, weight) in enumerate(zip(headers, weights)):
-            header.grid_columnconfigure(col, weight=weight)
+        header.pack(fill="x", padx=16, pady=(4, 0))
+        minsizes = [130, 190, 250, 170, 120]
+        for col, (text, weight, minsize) in enumerate(zip(headers, weights, minsizes)):
+            header.grid_columnconfigure(col, weight=weight, minsize=minsize)
             ctk.CTkLabel(
                 header,
                 text=text,
-                font=font(11, "bold"),
+                font=font(12, "bold"),
                 text_color=THEME["text_sub"],
-                anchor="w",
-            ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+                anchor="center" if col == len(headers) - 1 else "w",
+            ).grid(row=0, column=col, sticky="ew", padx=12, pady=10)
 
     def _activity_row(self, parent, values, idx):
         weights = [2, 2, 3, 2, 1]
@@ -285,21 +292,22 @@ class StaffBasicReports(ctk.CTkFrame):
             parent,
             fg_color=THEME["input"] if idx % 2 == 0 else THEME["bg_card"],
         )
-        row.pack(fill="x", padx=1)
-        for col, (value, weight) in enumerate(zip(values, weights)):
-            row.grid_columnconfigure(col, weight=weight)
+        row.pack(fill="x", padx=16)
+        minsizes = [130, 190, 250, 170, 120]
+        for col, (value, weight, minsize) in enumerate(zip(values, weights, minsizes)):
+            row.grid_columnconfigure(col, weight=weight, minsize=minsize)
             if col == 4:
                 cell = ctk.CTkFrame(row, fg_color="transparent")
-                cell.grid(row=0, column=col, sticky="ew", padx=10, pady=6)
-                create_status_badge(cell, value, compact=True).pack(anchor="w")
+                cell.grid(row=0, column=col, sticky="ew", padx=10, pady=7)
+                create_status_badge(cell, value, compact=True).pack(anchor="center")
             else:
                 ctk.CTkLabel(
                     row,
                     text=str(value)[:48],
-                    font=font(11),
+                    font=font(12),
                     text_color=THEME["text_main"],
                     anchor="w",
-                ).grid(row=0, column=col, sticky="ew", padx=12, pady=8)
+                ).grid(row=0, column=col, sticky="ew", padx=12, pady=10)
 
     def _open_file(self, path):
         """Safely opens the PDF on Windows, Mac, or Linux."""

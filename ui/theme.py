@@ -1,10 +1,13 @@
-"""Central dark dashboard design system for ChurchTrack."""
+"""Central dashboard design system for ChurchTrack."""
+
+import os
+
+import customtkinter as ctk
 
 FONT_FAMILY = "Segoe UI"
 
 
-THEME = {
-    # Required dark dashboard tokens
+DARK_THEME = {
     "bg_main": "#08111F",
     "bg_panel": "#0E1729",
     "bg_card": "#111B2E",
@@ -81,23 +84,151 @@ THEME = {
 }
 
 
-MODERN_THEME = {
+LIGHT_THEME = {
+    "bg_main": "#F5F7FB",
+    "bg_panel": "#EDF2F7",
+    "bg_card": "#FFFFFF",
+    "bg_card_hover": "#E8F1FF",
+    "sidebar": "#102033",
+    "sidebar_hover": "#1E3550",
+    "sidebar_active": "#2F80ED",
+    "primary": "#2F80ED",
+    "primary_dark": "#1D4ED8",
+    "accent": "#7C3AED",
+    "text_main": "#102033",
+    "text_sub": "#52657A",
+    "border": "#D5DEE9",
+    "border_active": "#2F80ED",
+    "success": "#168A4A",
+    "danger": "#DC2626",
+    "warning": "#B7791F",
+    "primary_hover": "#2563EB",
+    "primary_soft": "#DDEBFF",
+    "text_on_primary": "#FFFFFF",
+    "surface": "#FFFFFF",
+    "surface_alt": "#F0F5FA",
+    "surface_hover": "#E8F1FF",
+    "surface_muted": "#E6EDF5",
+    "input": "#F8FAFC",
+    "shadow": "#CBD5E1",
+    "topbar": "#FFFFFF",
+    "glow": "#2F80ED",
+    "sidebar_alt": "#162A42",
+    "sidebar_text": "#F8FAFC",
+    "sidebar_sub": "#C7D2E3",
+    "text_muted": "#7B8CA3",
+    "border_strong": "#B8C5D6",
+    "table_header": "#E6EEF8",
+    "table_row_alt": "#F1F5F9",
+    "success_hover": "#0F7A3E",
+    "success_soft": "#DDF8E9",
+    "danger_hover": "#B91C1C",
+    "danger_soft": "#FEE2E2",
+    "warning_hover": "#A16207",
+    "warning_soft": "#FEF3C7",
+    "info": "#0EA5E9",
+    "info_soft": "#E0F2FE",
+    "accent_red": "#DC2626",
+    "accent_blue": "#2563EB",
+    "accent_green": "#168A4A",
+    "accent_purple": "#7C3AED",
+    "accent_orange": "#EA580C",
+    "accent_teal": "#0F766E",
+    "accent_pink": "#DB2777",
+    "accent_gold": "#B7791F",
+    "font_family": FONT_FAMILY,
     "radius_sm": 10,
     "radius_md": 16,
     "radius_lg": 22,
     "radius_xl": 28,
-    "font_family": FONT_FAMILY,
-    "surface_soft": THEME["surface"],
-    "surface_hover": THEME["surface_hover"],
-    "surface_muted": THEME["surface_muted"],
-    "primary_soft": THEME["primary_soft"],
-    "success_soft": THEME["success_soft"],
-    "danger_soft": THEME["danger_soft"],
-    "warning_soft": THEME["warning_soft"],
-    "info": THEME["info"],
-    "info_soft": THEME["info_soft"],
-    "shadow": THEME["shadow"],
+    "radius_2xl": 32,
+    "sidebar_width": 240,
+    "sidebar_compact_width": 84,
+    "topbar_height": 72,
+    "page_pad": 24,
+    "card_pad": 20,
+    "control_h": 44,
 }
+
+
+THEME = DARK_THEME.copy()
+MODERN_THEME = {}
+
+
+def _theme_mode_path():
+    base = os.environ.get("APPDATA") or os.path.expanduser("~")
+    return os.path.join(base, "ChurchTrack", "theme_mode.txt")
+
+
+def _load_theme_mode():
+    try:
+        with open(_theme_mode_path(), "r", encoding="utf-8") as file:
+            value = file.read().strip().lower()
+            if value in ("light", "dark"):
+                return value
+    except OSError:
+        pass
+    return "dark"
+
+
+def _save_theme_mode(mode):
+    try:
+        path = _theme_mode_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as file:
+            file.write(mode)
+    except OSError:
+        pass
+
+
+def _refresh_modern_theme():
+    MODERN_THEME.clear()
+    MODERN_THEME.update({
+        "radius_sm": THEME["radius_sm"],
+        "radius_md": THEME["radius_md"],
+        "radius_lg": THEME["radius_lg"],
+        "radius_xl": THEME["radius_xl"],
+        "font_family": FONT_FAMILY,
+        "surface_soft": THEME["surface"],
+        "surface_hover": THEME["surface_hover"],
+        "surface_muted": THEME["surface_muted"],
+        "primary_soft": THEME["primary_soft"],
+        "success_soft": THEME["success_soft"],
+        "danger_soft": THEME["danger_soft"],
+        "warning_soft": THEME["warning_soft"],
+        "info": THEME["info"],
+        "info_soft": THEME["info_soft"],
+        "shadow": THEME["shadow"],
+    })
+
+
+_CURRENT_MODE = "dark"
+
+
+def apply_theme_mode(mode, persist=True):
+    global _CURRENT_MODE
+    mode = (mode or "dark").lower()
+    if mode not in ("light", "dark"):
+        mode = "dark"
+    THEME.clear()
+    THEME.update(LIGHT_THEME if mode == "light" else DARK_THEME)
+    _CURRENT_MODE = mode
+    ctk.set_appearance_mode("Light" if mode == "light" else "Dark")
+    if persist:
+        _save_theme_mode(mode)
+    _refresh_modern_theme()
+    return mode
+
+
+def toggle_theme_mode():
+    return apply_theme_mode("light" if _CURRENT_MODE == "dark" else "dark")
+
+
+def get_theme_mode():
+    return _CURRENT_MODE
+
+
+apply_theme_mode(_load_theme_mode(), persist=False)
 
 
 def font(size=12, weight=None):

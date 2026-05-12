@@ -99,6 +99,11 @@ class Settings(ctk.CTkFrame):
         )
         if not filepath:
             return
+        if not messagebox.askyesno(
+            "Confirm Import",
+            "Import donation records from this Excel file?",
+        ):
+            return
 
         self.import_status.configure(
             text="Importing — please wait...",
@@ -123,22 +128,6 @@ class Settings(ctk.CTkFrame):
                 ))
 
         threading.Thread(target=worker, daemon=True).start()
-
-    def save_changes():
-    # 1. Trigger the confirmation popup
-    confirm = messagebox.askyesno(
-        title="Confirm Save", 
-        message="Are you sure you want to save these changes?"
-    )
-    
-    # 2. Proceed only if the user clicks 'Yes'
-    if confirm:
-        # Your existing code to save to db_manager
-        db_manager.update_record(data)
-        messagebox.showinfo("Success", "Changes saved successfully.")
-    else:
-        # Do nothing, action cancelled
-        pass
 
     def _build_profile_card(self, parent):
         card = ctk.CTkFrame(
@@ -190,10 +179,7 @@ class Settings(ctk.CTkFrame):
             corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
-            command=lambda: self.profile_status.configure(
-                text="Profile saved.",
-                text_color=THEME["success"]
-            )
+            command=self._save_profile_settings,
         ).pack(pady=16, padx=24, fill="x")
 
     def _build_fees_card(self, parent):
@@ -246,11 +232,30 @@ class Settings(ctk.CTkFrame):
             corner_radius=14,
             fg_color=THEME["primary"],
             hover_color=THEME["primary_dark"],
-            command=lambda: self.fees_status.configure(
-                text="Fees saved.",
-                text_color=THEME["success"]
-            )
+            command=self._save_fee_settings,
         ).pack(pady=16, padx=24, fill="x")
+
+    def _save_profile_settings(self):
+        if not messagebox.askyesno(
+            "Confirm Profile Changes",
+            "Save parish profile changes?",
+        ):
+            return
+        self.profile_status.configure(
+            text="Profile saved.",
+            text_color=THEME["success"]
+        )
+
+    def _save_fee_settings(self):
+        if not messagebox.askyesno(
+            "Confirm Fee Changes",
+            "Save sacramental fee changes?",
+        ):
+            return
+        self.fees_status.configure(
+            text="Fees saved.",
+            text_color=THEME["success"]
+        )
 
     def _build_backup_card(self, parent):
         card = ctk.CTkFrame(
@@ -289,6 +294,11 @@ class Settings(ctk.CTkFrame):
         ).pack(pady=(0, 16), padx=24, fill="x")
 
     def _create_backup(self):
+        if not messagebox.askyesno(
+            "Confirm Backup",
+            "Create a backup copy of the database now?",
+        ):
+            return
         today = datetime.date.today().isoformat()
         dst   = "churchtrack_backup_" + today + ".db"
         try:

@@ -3,6 +3,7 @@ import os
 import threading
 import subprocess
 import platform
+from tkinter import messagebox
 
 import customtkinter as ctk
 
@@ -310,6 +311,11 @@ class Reports(ctk.CTkFrame):
         generated_by = self.generated_by_entry.get().strip() or "admin"
         role = self.generated_role.get()
         filters = self._filters_used(start, end)
+        if not messagebox.askyesno(
+            "Confirm Report Export",
+            "Generate and save this {}?".format(report_type.lower()),
+        ):
+            return
         self.status_label.configure(text="Exporting PDF...", text_color=THEME["warning"])
 
         def worker():
