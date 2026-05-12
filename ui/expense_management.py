@@ -1,5 +1,6 @@
 import datetime
 from collections import defaultdict
+from tkinter import messagebox
 
 import customtkinter as ctk
 import matplotlib.ticker as mticker
@@ -332,6 +333,22 @@ class ExpenseManagement(ctk.CTkFrame):
         scroll.pack(fill="both", expand=True, padx=1, pady=(0, 12))
         for idx, row_data in enumerate(rows):
             self._record_row(scroll, row_data, idx)
+
+    def save_changes():
+    # 1. Trigger the confirmation popup
+    confirm = messagebox.askyesno(
+        title="Confirm Save", 
+        message="Are you sure you want to save these changes?"
+    )
+    
+    # 2. Proceed only if the user clicks 'Yes'
+    if confirm:
+        # Your existing code to save to db_manager
+        db_manager.update_record(data)
+        messagebox.showinfo("Success", "Changes saved successfully.")
+    else:
+        # Do nothing, action cancelled
+        pass
 
     def _record_row(self, parent, row_data, idx):
         exp_id, date, category, amount, reason, status, submitted_by, approved_by, _approved_at = row_data
