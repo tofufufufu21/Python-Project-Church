@@ -4,6 +4,7 @@ import shutil
 import threading
 from tkinter import filedialog
 from ui.theme import THEME
+from tkinter import messagebox
 from ui.components import build_sidebar, build_screen_topbar, ADMIN_NAV
 
 
@@ -122,6 +123,22 @@ class Settings(ctk.CTkFrame):
                 ))
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def save_changes():
+    # 1. Trigger the confirmation popup
+    confirm = messagebox.askyesno(
+        title="Confirm Save", 
+        message="Are you sure you want to save these changes?"
+    )
+    
+    # 2. Proceed only if the user clicks 'Yes'
+    if confirm:
+        # Your existing code to save to db_manager
+        db_manager.update_record(data)
+        messagebox.showinfo("Success", "Changes saved successfully.")
+    else:
+        # Do nothing, action cancelled
+        pass
 
     def _build_profile_card(self, parent):
         card = ctk.CTkFrame(
